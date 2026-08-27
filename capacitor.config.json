@@ -1,0 +1,11 @@
+{
+  "appId": "cz.pixelblast.hra",
+  "appName": "Pixel Blast",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0b0b12"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
