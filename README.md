@@ -192,9 +192,9 @@ Mince sebrané ve hře se sčítají do peněženky, která přežije smrt i res
 | startovní štít | 220 | každý běh začíná se štítem |
 | rychlejší laser | 260 | trvale o 25 % kratší cooldown |
 | delší power-upy | 200 | bonusy vydrží o polovinu déle |
-| víc srdcí | 400 | strop životů 7 místo 5 |
-| silnější laser | 340 | každý zásah bere dva životy |
-| rychlejší boty | 280 | běh o čtvrtinu rychlejší |
+| víc srdcí | 2000 | strop životů 7 místo 5 |
+| silnější laser | 1700 | každý zásah bere dva životy |
+| rychlejší boty | 1400 | běh o čtvrtinu rychlejší |
 | magnet na mince | 300 | slabý magnet funguje pořád, i bez bonusu |
 | červený / zelený / fialový dres | 100 | barva trička postavy, dá se přepínat |
 | modrý dres | zdarma | návrat k výchozí barvě |

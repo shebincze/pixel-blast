@@ -1,5 +1,5 @@
-import { sprites, drawSprite } from './sprites.js?v=5739d7e2';
-import { VIEW_H } from './level.js?v=5739d7e2';
+import { sprites, drawSprite } from './sprites.js?v=34485ecb';
+import { VIEW_H } from './level.js?v=34485ecb';
 
 const GRAVITY = 900;
 const MAX_FALL = 340;
