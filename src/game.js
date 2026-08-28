@@ -1,9 +1,9 @@
-import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js?v=be306a75';
-import { Player, overlaps } from './player.js?v=be306a75';
-import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js?v=be306a75';
-import { Shop, SHOP_ITEMS } from './shop.js?v=be306a75';
-import { Cloud } from './cloud.js?v=be306a75';
-import { drawText, normalizeText } from './font.js?v=be306a75';
+import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js?v=9e2fd078';
+import { Player, overlaps } from './player.js?v=9e2fd078';
+import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js?v=9e2fd078';
+import { Shop, SHOP_ITEMS } from './shop.js?v=9e2fd078';
+import { Cloud } from './cloud.js?v=9e2fd078';
+import { drawText, normalizeText } from './font.js?v=9e2fd078';
 
 const START_LIVES = 3;
 const CAMERA_LERP = 8;
@@ -289,7 +289,7 @@ export class Game {
 
     // The cave ends with its own final fight: a rock golem.
     if (this.levelIndex === 3 && !this.caveBossDone && this.score >= LEVEL3_END_SCORE) {
-      this.boss = this.level.addFinalBoss(this.cameraX + VIEW_W + 20, 46, 'cave');
+      this.boss = this.level.addFinalBoss(this.cameraX + VIEW_W + 20, 40, 'cave');
       this.boss.isCave = true;
       this.bossBanner = 3;
       this.sound.bossAppear();
@@ -301,7 +301,7 @@ export class Game {
     // On the moon the robot scene takes over once the run reaches its end score.
     if (this.levelIndex === 2 && !this.ultraStarted && this.score >= LEVEL2_END_SCORE) return;
     if (this.levelIndex === 3 && this.score >= LEVEL3_END_SCORE) return;
-    const hp = (6 + this.bossesBeaten * 3) * (this.levelIndex === 2 ? 2 : this.levelIndex === 3 ? 3 : 1);
+    const hp = (6 + this.bossesBeaten * 3) * (this.levelIndex === 1 ? 1 : 2);
     this.boss = this.level.addBoss(this.cameraX + VIEW_W + 16, hp);
     this.bossBanner = 2;
     this.sound.bossAppear();
@@ -417,7 +417,7 @@ export class Game {
       this.blockBossX(boss, chargeFrom);
       this.spawnSparks(boss.x + boss.w / 2, GROUND_Y - 2, '#5d4767', 2);
       if (boss.charge <= 0) {
-        boss.chargeTimer = 3.2;
+        boss.chargeTimer = 4;
         this.shake = 0.5;
       }
       return undefined;
@@ -443,7 +443,7 @@ export class Game {
 
     boss.slamTimer -= dt;
     if (boss.slamTimer <= 0) {
-      boss.slamTimer = Math.max(3, 5 - this.bossesBeaten * 0.3);
+      boss.slamTimer = Math.max(4, 6 - this.bossesBeaten * 0.3);
       this.shake = 0.9;
       this.sound.hit();
       this.dropRock(player.x - 3);

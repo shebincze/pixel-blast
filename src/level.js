@@ -14,6 +14,10 @@ export function setViewWidth(width) {
 }
 export const GROUND_Y = 144; // top edge of the ground strip
 
+// Bats hang at a height a jumping player can shoot; higher up they would be
+// untouchable, because the laser flies flat.
+const BAT_HEIGHT = 96;
+
 const CHUNK_AHEAD = 480; // world pixels of level kept in front of the camera
 const CHUNK_BEHIND = 320; // world pixels kept behind before pruning
 
@@ -167,7 +171,7 @@ export class Level {
       x: px, y: py, w: 12, h: 8,
       baseY: py, phase: this.random() * Math.PI * 2,
       state: 'hover', vy: 0, cooldown: this.random(),
-      hp: 2,
+      hp: 1,
       dead: false, hitFlash: 0, facingLeft: true, anim: this.random(),
     });
   }
@@ -180,7 +184,7 @@ export class Level {
       x: px, y: ceilingY, w: 10, h: 8,
       anchorY: ceilingY,
       state: 'hang', vy: 0,
-      hp: 3,
+      hp: 2,
       dir: -1, speed: 26, minX, maxX,
       dead: false, hitFlash: 0, facingLeft: true, anim: this.random(),
     });
@@ -193,7 +197,7 @@ export class Level {
       variant: 'cave',
       small,
       x: px, y: GROUND_Y - (small ? 6 : 8), w: small ? 8 : 12, h: small ? 6 : 8,
-      hp: small ? 1 : 3,
+      hp: small ? 1 : 2,
       dead: false, hitFlash: 0,
       dir: -1, speed: small ? 26 : 12,
       minX, maxX, anim: this.random(),
@@ -291,8 +295,8 @@ export class Level {
       this.addCoin((px + slab / 2) * TILE - 4, py * TILE - 12);
       px += slab + this.int(2, 3);
     }
-    if (this.random() < 0.6 + difficulty * 0.3) {
-      this.addBat((tileX + width / 2) * TILE, (roof + 3) * TILE);
+    if (this.random() < 0.35) {
+      this.addBat((tileX + width / 2) * TILE, BAT_HEIGHT);
     }
     return width;
   }
@@ -313,10 +317,7 @@ export class Level {
       py -= this.int(2, 3);
     }
     this.addPowerup((tileX + width - 4) * TILE, 6 * TILE, ['rapid', 'spread', 'magnet', 'shield'][this.int(0, 3)]);
-    const bats = 1 + Math.round(difficulty);
-    for (let i = 0; i < bats; i++) {
-      this.addBat((tileX + 4 + i * 4) * TILE, (4 + i * 3) * TILE);
-    }
+    this.addBat((tileX + 5) * TILE, BAT_HEIGHT);
     this.addSpider((tileX + width - 3) * TILE, roof * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
     return width;
   }
@@ -330,8 +331,8 @@ export class Level {
     this.addCoin((tileX + 3) * TILE, GROUND_Y - 3 * TILE);
     this.addCoin((tileX + 5) * TILE, GROUND_Y - 3 * TILE);
     this.addSlug((tileX + width / 2) * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
-    if (this.random() < 0.5 + difficulty * 0.3) {
-      this.addBat((tileX + width - 4) * TILE, (roof + 3) * TILE);
+    if (this.random() < 0.3) {
+      this.addBat((tileX + width - 4) * TILE, BAT_HEIGHT);
     }
     this.maybeAddPowerup(tileX, width);
     return width;
@@ -350,7 +351,7 @@ export class Level {
       const t = (i + 0.5) / pool;
       this.addCoin((poolX + i) * TILE, GROUND_Y - 4 * TILE - Math.sin(t * Math.PI) * 14);
     }
-    if (this.random() < 0.5) this.addBat((poolX + pool + 1) * TILE, (roof + 4) * TILE);
+    if (this.random() < 0.3) this.addBat((poolX + pool + 1) * TILE, BAT_HEIGHT);
     return width;
   }
 
@@ -360,7 +361,7 @@ export class Level {
     const roof = 10; // bottom edge at 80px - walking room only
     this.addGround(tileX, width);
     this.addCeiling(tileX, width, roof);
-    const count = 2 + Math.round(difficulty * 2);
+    const count = 1 + Math.round(difficulty);
     for (let i = 0; i < count; i++) {
       this.addStalactite(tileX + 2 + i * 3, roof);
     }
@@ -381,11 +382,7 @@ export class Level {
     for (let i = 0; i < height; i++) this.addCrystal(stackX, GROUND_Y / TILE - (i + 1));
     this.addCoin(stackX * TILE, GROUND_Y - (height + 2) * TILE);
 
-    const spiders = 1 + Math.round(difficulty);
-    for (let i = 0; i < spiders; i++) {
-      const px = (tileX + 6 + i * 4) * TILE;
-      this.addSpider(px, roof * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
-    }
+    this.addSpider((tileX + 6) * TILE, roof * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
     this.maybeAddPowerup(tileX, width, 4);
     return width;
   }
@@ -540,7 +537,7 @@ export class Level {
 
     if (bat.state === 'hover') {
       bat.y = bat.baseY + Math.sin(time * 2.4 + bat.phase) * 4;
-      if (player && bat.cooldown <= 0 && Math.abs(player.x - bat.x) < 56 && player.y > bat.y) {
+      if (player && bat.cooldown <= 0 && Math.abs(player.x - bat.x) < 48 && player.y > bat.y) {
         bat.state = 'dive';
         bat.vy = 40;
         bat.diveX = Math.sign(player.x - bat.x) || -1;
@@ -549,7 +546,7 @@ export class Level {
     }
 
     if (bat.state === 'dive') {
-      bat.vy += 420 * dt;
+      bat.vy += 320 * dt;
       bat.y += bat.vy * dt;
       bat.x += bat.diveX * 40 * dt;
       bat.facingLeft = bat.diveX < 0;
@@ -564,7 +561,7 @@ export class Level {
     if (bat.y <= bat.baseY) {
       bat.y = bat.baseY;
       bat.state = 'hover';
-      bat.cooldown = 1.8;
+      bat.cooldown = 2.6;
     }
   }
 

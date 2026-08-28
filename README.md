@@ -153,11 +153,11 @@ Noví nepřátelé mají vlastní design i chování:
 
 | Potvora | Životy | Mechanika |
 | --- | --- | --- |
-| netopýr | 2 | vznáší se pod stropem, na blízko se střemhlav vrhne dolů a zase vystoupá |
-| pavouk | 3 | visí na vlákně u stropu, spadne přesně když pod ním projdeš, pak leze po zemi |
-| lávový slimák | 3 | pomalý a odolný, po zabití se **rozdělí na dva malé** (1 život, ale rychlejší) |
+| netopýr | 1 | poletuje ve výšce, kam dosáhne laser z výskoku, na blízko se střemhlav vrhne dolů |
+| pavouk | 2 | visí na vlákně u stropu, spadne přesně když pod ním projdeš, pak leze po zemi |
+| lávový slimák | 2 | pomalý, po zabití se **rozdělí na dva malé** (1 život, ale rychlejší) |
 
-Mini bossové po 500 bodech mají v jeskyni **trojnásobek životů**, podobu kamenného
+Mini bossové po 500 bodech mají v jeskyni **dvojnásobek životů**, podobu kamenného
 balvanu s krystalovým jádrem a úplně jiné chování než ti na Zemi a Měsíci —
 nestřílí a nelétají:
 
@@ -168,7 +168,7 @@ nestřílí a nelétají:
 
 ## Konec hry — kamenný golem
 
-Na **9000 bodech** se objeví finální **kamenný golem**: 46 životů, dvojnásobné
+Na **9000 bodech** se objeví finální **kamenný golem**: 40 životů, dvojnásobné
 měřítko spritu a vlastní sada útoků — kamenné tělo s mechem na ramenou a
 krystalovým jádrem v hrudi, žádný létající stroj:
 
