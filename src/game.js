@@ -179,7 +179,7 @@ export class Game {
 
     if (this.state === 'leaderboard') {
       if (this.input.wasPressed('start') || this.input.wasPressed('jump')
-        || this.input.wasPressed('restart') || this.input.tap) {
+        || this.input.wasPressed('restart') || this.input.wasPressed('pause') || this.input.tap) {
         this.state = 'menu';
       }
       return;
@@ -215,7 +215,8 @@ export class Game {
         this.newRun();
         this.state = 'play';
       }
-      if (this.input.wasPressed('menuDown') || this.input.wasPressed('menuUp')) this.state = 'menu';
+      if (this.input.wasPressed('menuDown') || this.input.wasPressed('menuUp')
+        || this.input.wasPressed('pause')) this.state = 'menu';
       return;
     }
 
@@ -680,6 +681,15 @@ export class Game {
       this.menuIndex = (this.menuIndex - 1 + MENU_ITEMS.length) % MENU_ITEMS.length;
       this.sound.select();
     }
+    // The touch pad has no up/down, so its arrows walk the menu as well.
+    if (input.wasPressed('right')) {
+      this.menuIndex = (this.menuIndex + 1) % MENU_ITEMS.length;
+      this.sound.select();
+    }
+    if (input.wasPressed('left')) {
+      this.menuIndex = (this.menuIndex - 1 + MENU_ITEMS.length) % MENU_ITEMS.length;
+      this.sound.select();
+    }
 
     // A tap picks the item it landed on, so the menu works without a keyboard.
     if (input.tap) {
@@ -767,15 +777,17 @@ export class Game {
   /** Rows shown in the shop: the items, the free default shirt, and a way out. */
   get shopRows() {
     return [
+      // First row, not last: on a phone the bottom corners sit under the
+      // on-screen buttons, so a row down there cannot be tapped.
+      { id: 'back', name: 'zpet do menu' },
       ...SHOP_ITEMS,
       { id: 'skin_default', name: 'modry dres', detail: 'vychozi barva postavy', price: 0, skin: '#3aa0e0' },
-      { id: 'back', name: 'zpet do menu' },
     ];
   }
 
   openShop() {
     this.state = 'shop';
-    this.shopIndex = 0;
+    this.shopIndex = 1; // start on the first item, not on "back"
     this.shopMessage = '';
   }
 
@@ -793,8 +805,17 @@ export class Game {
       this.shopIndex = (this.shopIndex - 1 + rows.length) % rows.length;
       this.sound.select();
     }
-    if (input.wasPressed('restart')) {
+    if (input.wasPressed('right')) {
+      this.shopIndex = (this.shopIndex + 1) % rows.length;
+      this.sound.select();
+    }
+    if (input.wasPressed('left')) {
+      this.shopIndex = (this.shopIndex - 1 + rows.length) % rows.length;
+      this.sound.select();
+    }
+    if (input.wasPressed('restart') || input.wasPressed('pause')) {
       this.state = 'menu';
+      this.sound.confirm();
       return;
     }
 
@@ -2002,7 +2023,7 @@ export class Game {
       drawText(ctx, this.shopMessage, mid + 40, 29, { color: this.shopMessageColor });
     }
 
-    drawText(ctx, 'sipky = vyber, enter / tap = koupit, R = zpet', mid, VIEW_H - 9, {
+    drawText(ctx, 'tap = koupit, R / tlacitko v rohu = zpet', mid, VIEW_H - 9, {
       color: '#6a6a80',
       align: 'center',
     });
@@ -2027,7 +2048,7 @@ export class Game {
     });
 
     drawText(ctx, 'z menu se beh nedohraje', mid, 128, { color: '#8a8aa0', align: 'center' });
-    drawText(ctx, 'ESC / P / tlacitko II = zpet do hry', mid, 140, {
+    drawText(ctx, 'ESC / P / tlacitko v rohu = zpet do hry', mid, 140, {
       color: '#8a8aa0',
       align: 'center',
     });
