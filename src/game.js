@@ -1,6 +1,7 @@
 import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js';
 import { Player, overlaps } from './player.js';
-import { sprites, drawSprite, drawSpriteTinted } from './sprites.js';
+import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js';
+import { Shop, SHOP_ITEMS } from './shop.js';
 import { drawText } from './font.js';
 
 const START_LIVES = 3;
@@ -11,13 +12,17 @@ const BOARD_KEY = 'pixelblast.board';
 const NAME_KEY = 'pixelblast.name';
 const BOARD_SIZE = 10;
 
-const MENU_Y = 96;
-const MENU_STEP = 18;
+const MENU_Y = 92;
+const MENU_STEP = 16;
 
 const MENU_ITEMS = [
   { id: 'new', label: 'nova hra' },
+  { id: 'shop', label: 'obchod' },
   { id: 'board', label: 'leaderboard' },
 ];
+
+const SHOP_ROW_Y = 42;
+const SHOP_ROW_STEP = 12;
 const SHOT_COOLDOWN = 0.28;
 const BULLET_SPEED = 280;
 const BULLET_LIFE = 1.1;
@@ -79,6 +84,10 @@ export class Game {
     this.time = 0;
     this.best = Number(localStorage.getItem(BEST_KEY) || 0);
     this.playerName = localStorage.getItem(NAME_KEY) || 'HRAC';
+    this.shop = new Shop();
+    setPlayerShirt(this.shop.skin);
+    this.shopMessage = '';
+    this.shopMessageTime = 0;
     this.board = loadBoard();
     this.menuIndex = 0;
     this.clouds = Array.from({ length: 8 }, (_, i) => ({
@@ -109,13 +118,14 @@ export class Game {
     this.bossBanner = 0;
     this.nextBossScore = BOSS_INTERVAL;
     this.bonusScore = 0;
-    this.power = { rapid: 0, spread: 0, magnet: 0, shield: false };
+    // Shop upgrades apply from the first frame of the run.
+    this.power = { rapid: 0, spread: 0, magnet: 0, shield: this.shop.has('shield') };
     this.powerBanner = 0;
     this.powerBannerText = '';
     this.player = new Player(24, GROUND_Y - 14);
     this.player.gravityScale = 1;
     this.cameraX = 0;
-    this.lives = START_LIVES;
+    this.lives = START_LIVES + (this.shop.has('life') ? 1 : 0);
     this.coins = 0;
     this.distance = 0;
     this.distanceBase = 0;
@@ -144,6 +154,11 @@ export class Game {
     }
 
     if (this.state === 'name') return; // the HTML overlay owns this step
+
+    if (this.state === 'shop') {
+      this.updateShop(dt);
+      return;
+    }
 
     if (this.state === 'leaderboard') {
       if (this.input.wasPressed('start') || this.input.wasPressed('jump')
@@ -437,7 +452,9 @@ export class Game {
     power.magnet = Math.max(0, power.magnet - dt);
     this.powerBanner = Math.max(0, this.powerBanner - dt);
 
-    if (power.magnet <= 0) return;
+    // The bought magnet works all the time, just with a shorter reach.
+    const range = power.magnet > 0 ? MAGNET_RANGE : (this.shop.has('magnetstart') ? MAGNET_RANGE * 0.55 : 0);
+    if (range <= 0) return;
     // Coins in range curve toward the player instead of waiting to be touched.
     const centerX = this.player.x + this.player.w / 2;
     const centerY = this.player.y + this.player.h / 2;
@@ -446,17 +463,18 @@ export class Game {
       const dx = centerX - (coin.x + 4);
       const dy = centerY - (coin.y + 4);
       const distance = Math.hypot(dx, dy);
-      if (distance > MAGNET_RANGE || distance < 0.01) continue;
-      const pull = (1 - distance / MAGNET_RANGE) * 220 * dt;
+      if (distance > range || distance < 0.01) continue;
+      const pull = (1 - distance / range) * 220 * dt;
       coin.x += (dx / distance) * pull;
       coin.y += (dy / distance) * pull;
     }
   }
 
   applyPower(kind) {
-    if (kind === 'rapid') this.power.rapid = RAPID_TIME;
-    else if (kind === 'spread') this.power.spread = SPREAD_TIME;
-    else if (kind === 'magnet') this.power.magnet = MAGNET_TIME;
+    const factor = this.shop.has('longpower') ? 1.5 : 1;
+    if (kind === 'rapid') this.power.rapid = RAPID_TIME * factor;
+    else if (kind === 'spread') this.power.spread = SPREAD_TIME * factor;
+    else if (kind === 'magnet') this.power.magnet = MAGNET_TIME * factor;
     else if (kind === 'shield') this.power.shield = true;
     this.powerBanner = 1.6;
     this.powerBannerText = POWER_NAMES[kind] || '';
@@ -484,7 +502,8 @@ export class Game {
       });
     }
 
-    this.shotCooldown = this.power.rapid > 0 ? SHOT_COOLDOWN * RAPID_COOLDOWN_SCALE : SHOT_COOLDOWN;
+    const baseCooldown = SHOT_COOLDOWN * (this.shop.has('rapid') ? 0.75 : 1);
+    this.shotCooldown = this.power.rapid > 0 ? baseCooldown * RAPID_COOLDOWN_SCALE : baseCooldown;
     this.muzzle = 0.07;
     this.sound.shoot();
   }
@@ -600,8 +619,96 @@ export class Game {
     this.sound.confirm();
     const item = MENU_ITEMS[this.menuIndex];
     if (item.id === 'new') this.state = 'name';
+    else if (item.id === 'shop') this.openShop();
     else if (item.id === 'board') this.state = 'leaderboard';
     return undefined;
+  }
+
+  /** Rows shown in the shop: the items, the free default shirt, and a way out. */
+  get shopRows() {
+    return [
+      ...SHOP_ITEMS,
+      { id: 'skin_default', name: 'modry dres', detail: 'vychozi barva postavy', price: 0, skin: '#3aa0e0' },
+      { id: 'back', name: 'zpet do menu' },
+    ];
+  }
+
+  openShop() {
+    this.state = 'shop';
+    this.shopIndex = 0;
+    this.shopMessage = '';
+  }
+
+  updateShop(dt) {
+    const input = this.input;
+    const rows = this.shopRows;
+    this.shopMessageTime = Math.max(0, this.shopMessageTime - dt);
+    if (this.shopMessageTime <= 0) this.shopMessage = '';
+
+    if (input.wasPressed('menuDown')) {
+      this.shopIndex = (this.shopIndex + 1) % rows.length;
+      this.sound.select();
+    }
+    if (input.wasPressed('menuUp')) {
+      this.shopIndex = (this.shopIndex - 1 + rows.length) % rows.length;
+      this.sound.select();
+    }
+    if (input.wasPressed('restart')) {
+      this.state = 'menu';
+      return;
+    }
+
+    if (input.tap) {
+      const hit = rows.findIndex((row, index) => {
+        const y = SHOP_ROW_Y + index * SHOP_ROW_STEP;
+        return input.tap.y > y - 5 && input.tap.y < y + 10;
+      });
+      if (hit < 0) return;
+      this.shopIndex = hit;
+      this.buyShopRow(rows[hit]);
+      return;
+    }
+
+    if (input.wasPressed('start') || input.wasPressed('jump')) this.buyShopRow(rows[this.shopIndex]);
+  }
+
+  buyShopRow(row) {
+    if (row.id === 'back') {
+      this.sound.confirm();
+      this.state = 'menu';
+      return;
+    }
+
+    if (row.id === 'skin_default') {
+      this.shop.equipDefault();
+      setPlayerShirt(this.shop.skin);
+      this.showShopMessage('nasazeno', '#8fe08f');
+      this.sound.confirm();
+      return;
+    }
+
+    const result = this.shop.buy(row);
+    if (result === 'bought') {
+      if (row.skin) setPlayerShirt(this.shop.skin);
+      this.showShopMessage('koupeno!', '#8fe08f');
+      this.sound.power();
+    } else if (result === 'equipped') {
+      setPlayerShirt(this.shop.skin);
+      this.showShopMessage('nasazeno', '#8fe08f');
+      this.sound.confirm();
+    } else if (result === 'poor') {
+      this.showShopMessage(`chybi ${row.price - this.shop.coins} minci`, '#ff6b6b');
+      this.sound.hurt();
+    } else {
+      this.showShopMessage('uz vlastnis', '#8a8aa0');
+      this.sound.select();
+    }
+  }
+
+  showShopMessage(text, color) {
+    this.shopMessage = text;
+    this.shopMessageColor = color;
+    this.shopMessageTime = 2;
   }
 
   /** Called by the HTML name field once the player confirms. */
@@ -996,6 +1103,7 @@ export class Game {
       if (overlaps(this.player.hitbox, coin)) {
         coin.taken = true;
         this.coins++;
+        this.shop.earn();
         this.sound.coin();
       }
     }
@@ -1073,6 +1181,11 @@ export class Game {
 
     if (this.state === 'intro') {
       this.drawIntro();
+      return;
+    }
+
+    if (this.state === 'shop') {
+      this.drawShop();
       return;
     }
 
@@ -1585,7 +1698,8 @@ export class Game {
 
     drawText(ctx, 'PIXEL', mid, 18, { color: '#7ef2ff', align: 'center', scale: 3 });
     drawText(ctx, 'BLAST', mid, 42, { color: '#ffe14a', align: 'center', scale: 3 });
-    drawText(ctx, `hrac: ${this.playerName}`, mid, 72, { color: '#a0a0c0', align: 'center' });
+    drawText(ctx, `hrac: ${this.playerName}`, mid, 66, { color: '#a0a0c0', align: 'center' });
+    drawText(ctx, `mince: ${this.shop.coins}`, mid, 78, { color: '#ffd24a', align: 'center' });
 
     MENU_ITEMS.forEach((item, index) => {
       const y = MENU_Y + index * MENU_STEP;
@@ -1600,16 +1714,16 @@ export class Game {
       drawText(ctx, 'sipky = vyber, enter / tap = potvrdit', mid, 140, { color: '#8a8aa0', align: 'center' });
     }
 
-    drawText(ctx, 'X = laser, mezernik = skok (2x dvojskok)', mid, 152, {
+    drawText(ctx, 'X = laser, mezernik = skok (2x dvojskok)', mid, 150, {
       color: '#8a8aa0',
       align: 'center',
     });
-    drawText(ctx, `M = zvuk ${this.sound.muted ? 'zapnout' : 'vypnout'}`, mid, 162, {
+    drawText(ctx, `M = zvuk ${this.sound.muted ? 'zapnout' : 'vypnout'}`, mid, 160, {
       color: '#8a8aa0',
       align: 'center',
     });
     if (this.best > 0) {
-      drawText(ctx, `rekord: ${this.best}`, mid, 172, { color: '#a0a0c0', align: 'center' });
+      drawText(ctx, `rekord: ${this.best}`, mid, 170, { color: '#a0a0c0', align: 'center' });
     }
   }
 
@@ -1643,6 +1757,56 @@ export class Game {
     });
 
     drawText(ctx, 'enter / tap = menu', mid, VIEW_H - 20, { color: '#8a8aa0', align: 'center' });
+  }
+
+  /** The coin shop: rows of upgrades, wallet on top, detail of the selection. */
+  drawShop() {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0b0b16';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    const mid = VIEW_W / 2;
+    const rows = this.shopRows;
+
+    drawText(ctx, 'OBCHOD', mid, 10, { color: '#ffe14a', align: 'center', scale: 2 });
+    drawSprite(ctx, sprites.coin, mid - 34, 28);
+    drawText(ctx, `${this.shop.coins}`, mid - 22, 29, { color: '#ffd24a' });
+
+    rows.forEach((row, index) => {
+      const y = SHOP_ROW_Y + index * SHOP_ROW_STEP;
+      const active = index === this.shopIndex;
+      const owned = row.id !== 'back' && row.id !== 'skin_default' && this.shop.has(row.id);
+      const equipped = row.skin && this.shop.skin === row.skin;
+
+      let color = '#c8c8d8';
+      if (active) color = blink(this.time) ? '#ffffff' : '#a0a0c0';
+      else if (owned) color = '#7ea0a0';
+
+      drawText(ctx, `${active ? '>' : ' '} ${row.name}`, 22, y, { color });
+
+      if (row.id === 'back') return;
+      if (equipped) {
+        drawText(ctx, 'nasazeno', VIEW_W - 22, y, { color: '#8fe08f', align: 'right' });
+      } else if (owned) {
+        drawText(ctx, row.skin ? 'nasadit' : 'koupeno', VIEW_W - 22, y, { color: '#8fe08f', align: 'right' });
+      } else {
+        const affordable = this.shop.coins >= row.price;
+        drawText(ctx, `${row.price}`, VIEW_W - 22, y, { color: affordable ? '#ffd24a' : '#7a5a3a', align: 'right' });
+      }
+    });
+
+    const selected = rows[this.shopIndex];
+    if (selected && selected.detail) {
+      drawText(ctx, selected.detail, mid, VIEW_H - 20, { color: '#8a8aa0', align: 'center' });
+    }
+
+    if (this.shopMessage) {
+      drawText(ctx, this.shopMessage, mid + 40, 29, { color: this.shopMessageColor });
+    }
+
+    drawText(ctx, 'sipky = vyber, enter / tap = koupit, R = zpet', mid, VIEW_H - 9, {
+      color: '#6a6a80',
+      align: 'center',
+    });
   }
 
   drawLeaderboard() {

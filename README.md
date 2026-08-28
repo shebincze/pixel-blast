@@ -129,6 +129,24 @@ měřítkem spritu, rychlejšími salvami a nepřetržitým vysíláním potvor.
 Po jeho poražení se objeví závěrečná obrazovka **„POKRACOVANI PRISTE“** se souhrnem
 běhu; skóre se zapíše do leaderboardu.
 
+## Obchod za mince
+
+Mince sebrané ve hře se sčítají do peněženky, která přežije smrt i restart
+(`localStorage`). V hlavním menu je položka **Obchod**:
+
+| Zboží | Cena | Efekt |
+| --- | --- | --- |
+| srdce navíc | 150 | běh začíná se 4 životy |
+| startovní štít | 220 | každý běh začíná se štítem |
+| rychlejší laser | 260 | trvale o 25 % kratší cooldown |
+| delší power-upy | 200 | bonusy vydrží o polovinu déle |
+| magnet na mince | 300 | slabý magnet funguje pořád, i bez bonusu |
+| červený / zelený / fialový dres | 100 | barva trička postavy, dá se přepínat |
+| modrý dres | zdarma | návrat k výchozí barvě |
+
+Upgrady se kupují jednou a platí navždy, dresy se dají libovolně přepínat.
+Ovládání: šipky vybírají, Enter nebo ťuknutí koupí, R vrátí do menu.
+
 ## Struktura
 
 | Soubor | Obsah |
@@ -138,6 +156,7 @@ běhu; skóre se zapíše do leaderboardu.
 | `src/main.js` | inicializace, škálování plátna, dotyky, pole pro jméno, herní smyčka 1/60 s |
 | `src/font.js` | bitmapový font 5×7 a vykreslování ostrého textu |
 | `src/audio.js` | syntéza všech zvuků a hudby přes Web Audio |
+| `src/shop.js` | peněženka, zboží a uložené nákupy |
 | `scripts/build.mjs` | zkopíruje hru do `www/` pro Capacitor |
 | `android/` | nativní Android projekt (Capacitor) |
 | `src/input.js` | klávesnice + dotyk, držené klávesy i jednorázové stisky |

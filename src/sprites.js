@@ -736,6 +736,21 @@ function tinted(canvas, color) {
   return out;
 }
 
+/**
+ * Re-bake the hero with a different shirt colour (shop skins). The palette is
+ * restored right after, so nothing else in the game changes colour.
+ */
+export function setPlayerShirt(color) {
+  const previous = PALETTE.b;
+  PALETTE.b = color;
+  sprites.playerIdle = pair(PLAYER_IDLE);
+  sprites.playerRunA = pair(PLAYER_RUN_A);
+  sprites.playerRunB = pair(PLAYER_RUN_B);
+  sprites.playerJump = pair(PLAYER_JUMP);
+  sprites.playerFall = pair(PLAYER_FALL);
+  PALETTE.b = previous;
+}
+
 /** Draw the sprite's silhouette in a flat color — used for damage flashes. */
 export function drawSpriteTinted(ctx, sprite, x, y, facingLeft, color, alpha = 1, scale = 1) {
   const source = facingLeft ? sprite.left : sprite.right;
