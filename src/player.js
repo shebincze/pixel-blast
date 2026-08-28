@@ -1,5 +1,5 @@
-import { sprites, drawSprite } from './sprites.js?v=9e2fd078';
-import { VIEW_H } from './level.js?v=9e2fd078';
+import { sprites, drawSprite } from './sprites.js?v=5739d7e2';
+import { VIEW_H } from './level.js?v=5739d7e2';
 
 const GRAVITY = 900;
 const MAX_FALL = 340;
@@ -22,6 +22,8 @@ export class Player {
   reset(x, y) {
     // Gravity scale survives a reset: it belongs to the level, not the life.
     if (this.gravityScale === undefined) this.gravityScale = 1;
+    // So does the shop's speed upgrade: it belongs to the run.
+    if (this.speedScale === undefined) this.speedScale = 1;
     this.x = x;
     this.y = y;
     this.w = 8;
@@ -48,8 +50,9 @@ export class Player {
     const direction = (right ? 1 : 0) - (left ? 1 : 0);
 
     if (direction !== 0) {
-      this.vx += direction * ACCELERATION * dt;
-      this.vx = Math.max(-MOVE_SPEED, Math.min(MOVE_SPEED, this.vx));
+      const top = MOVE_SPEED * this.speedScale;
+      this.vx += direction * ACCELERATION * this.speedScale * dt;
+      this.vx = Math.max(-top, Math.min(top, this.vx));
       this.facingLeft = direction < 0;
     } else {
       const friction = (this.onGround ? GROUND_FRICTION : AIR_FRICTION) * dt;

@@ -38,6 +38,24 @@ export const SHOP_ITEMS = [
     price: 200,
   },
   {
+    id: 'maxlife',
+    name: 'vic srdci',
+    detail: 'strop zivotu 7 misto 5',
+    price: 400,
+  },
+  {
+    id: 'damage',
+    name: 'silnejsi laser',
+    detail: 'kazdy zasah bere dva zivoty',
+    price: 340,
+  },
+  {
+    id: 'speed',
+    name: 'rychlejsi boty',
+    detail: 'beh o ctvrtinu rychlejsi',
+    price: 280,
+  },
+  {
     id: 'magnetstart',
     name: 'magnet na mince',
     detail: 'mince pritahuje i bez bonusu',

@@ -1,9 +1,9 @@
-import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js?v=9e2fd078';
-import { Player, overlaps } from './player.js?v=9e2fd078';
-import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js?v=9e2fd078';
-import { Shop, SHOP_ITEMS } from './shop.js?v=9e2fd078';
-import { Cloud } from './cloud.js?v=9e2fd078';
-import { drawText, normalizeText } from './font.js?v=9e2fd078';
+import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js?v=5739d7e2';
+import { Player, overlaps } from './player.js?v=5739d7e2';
+import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js?v=5739d7e2';
+import { Shop, SHOP_ITEMS } from './shop.js?v=5739d7e2';
+import { Cloud } from './cloud.js?v=5739d7e2';
+import { drawText, normalizeText } from './font.js?v=5739d7e2';
 
 const START_LIVES = 3;
 const CAMERA_LERP = 8;
@@ -31,7 +31,8 @@ const PAUSE_ITEMS = [
 ];
 
 const SHOP_ROW_Y = 42;
-const SHOP_ROW_STEP = 11;
+const SHOP_ROW_STEP = 12;
+const SHOP_VISIBLE_ROWS = 9; // the list scrolls, the canvas is only 180 px tall
 const SHOT_COOLDOWN = 0.28;
 const BULLET_SPEED = 280;
 const BULLET_LIFE = 1.1;
@@ -146,6 +147,10 @@ export class Game {
     this.player.gravityScale = 1;
     this.cameraX = 0;
     this.lives = START_LIVES + (this.shop.has('life') ? 1 : 0);
+    // Shop upgrades: a higher heart cap, harder shots and faster legs.
+    this.maxLives = MAX_LIVES + (this.shop.has('maxlife') ? 2 : 0);
+    this.shotDamage = this.shop.has('damage') ? 2 : 1;
+    this.player.speedScale = this.shop.has('speed') ? 1.25 : 1;
     this.coins = 0;
     this.distance = 0;
     this.distanceBase = 0;
@@ -796,7 +801,7 @@ export class Game {
       for (const enemy of level.enemies) {
         if (enemy.dead || !overlaps(bullet, enemy)) continue;
         bullet.life = 0;
-        enemy.hp--;
+        enemy.hp -= this.shotDamage;
         enemy.hitFlash = HIT_FLASH_TIME;
         this.sound.hit();
         this.spawnImpact(bullet.x + (bullet.facingLeft ? 0 : bullet.w), bullet.y + 1, bullet.facingLeft ? 1 : -1);
@@ -980,6 +985,13 @@ export class Game {
     ];
   }
 
+  /** The shop list is longer than the screen, so it scrolls around the cursor. */
+  shopWindow(rows) {
+    if (rows.length <= SHOP_VISIBLE_ROWS) return 0;
+    const centred = this.shopIndex - Math.floor(SHOP_VISIBLE_ROWS / 2);
+    return Math.max(0, Math.min(rows.length - SHOP_VISIBLE_ROWS, centred));
+  }
+
   openShop() {
     this.state = 'shop';
     this.shopIndex = 1; // start on the first item, not on "back"
@@ -1015,9 +1027,11 @@ export class Game {
     }
 
     if (input.tap) {
+      const first = this.shopWindow(rows);
       const hit = rows.findIndex((row, index) => {
-        const y = SHOP_ROW_Y + index * SHOP_ROW_STEP;
-        return input.tap.y > y - 2 && input.tap.y < y + 9;
+        if (index < first || index >= first + SHOP_VISIBLE_ROWS) return false;
+        const y = SHOP_ROW_Y + (index - first) * SHOP_ROW_STEP;
+        return input.tap.y > y - 3 && input.tap.y < y + 10;
       });
       if (hit < 0) return;
       this.shopIndex = hit;
@@ -1641,7 +1655,7 @@ export class Game {
     for (const heart of this.level.hearts) {
       if (heart.taken || !overlaps(this.player.hitbox, heart)) continue;
       heart.taken = true;
-      this.lives = Math.min(MAX_LIVES, this.lives + 1);
+      this.lives = Math.min(this.maxLives, this.lives + 1);
       this.sound.heart();
       this.spawnSparks(heart.x + heart.w / 2, heart.y + heart.h / 2, '#e2445c', 6);
     }
@@ -2479,8 +2493,17 @@ export class Game {
     drawSprite(ctx, sprites.coin, mid - 34, 28);
     drawText(ctx, `${this.shop.coins}`, mid - 22, 29, { color: '#ffd24a' });
 
-    rows.forEach((row, index) => {
-      const y = SHOP_ROW_Y + index * SHOP_ROW_STEP;
+    const first = this.shopWindow(rows);
+    const visible = rows.slice(first, first + SHOP_VISIBLE_ROWS);
+    // Arrows show that the list continues above or below the window.
+    if (first > 0) drawText(ctx, '^', 14, SHOP_ROW_Y - 8, { color: '#6a6a80' });
+    if (first + SHOP_VISIBLE_ROWS < rows.length) {
+      drawText(ctx, 'v', 14, SHOP_ROW_Y + SHOP_VISIBLE_ROWS * SHOP_ROW_STEP - 4, { color: '#6a6a80' });
+    }
+
+    visible.forEach((row, offset) => {
+      const index = first + offset;
+      const y = SHOP_ROW_Y + offset * SHOP_ROW_STEP;
       const active = index === this.shopIndex;
       const owned =
         row.id !== 'back' && row.id !== 'daily' && row.id !== 'skin_default' && this.shop.has(row.id);

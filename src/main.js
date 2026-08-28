@@ -1,7 +1,7 @@
-import { Game } from './game.js?v=9e2fd078';
-import { Input } from './input.js?v=9e2fd078';
-import { Sound } from './audio.js?v=9e2fd078';
-import { VIEW_W, VIEW_H, setViewWidth } from './level.js?v=9e2fd078';
+import { Game } from './game.js?v=5739d7e2';
+import { Input } from './input.js?v=5739d7e2';
+import { Sound } from './audio.js?v=5739d7e2';
+import { VIEW_W, VIEW_H, setViewWidth } from './level.js?v=5739d7e2';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');

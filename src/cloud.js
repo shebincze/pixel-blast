@@ -3,7 +3,7 @@
 // the device is offline, or a request fails, the game keeps running on its local
 // save and simply retries later.
 
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './cloud-config.js?v=9e2fd078';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './cloud-config.js?v=5739d7e2';
 
 const DEVICE_KEY = 'pixelblast.device';
 const URL_OVERRIDE = 'pixelblast.supabase.url';
