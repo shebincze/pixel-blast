@@ -61,6 +61,15 @@ function syncNameOverlay() {
 // Debug handle: lets the console inspect or drive the running game.
 window.game = game;
 
+// ?level=2 or ?level=3 jumps straight into a later level. Handy for trying the
+// Moon or the cave without replaying everything before them.
+const wantedLevel = Number(new URLSearchParams(location.search).get('level'));
+if (wantedLevel === 2 || wantedLevel === 3) {
+  game.hasName = true;
+  if (wantedLevel === 2) game.startLevel2();
+  else game.startLevel3();
+}
+
 /** Size the canvas so the picture fills the screen without stretching pixels. */
 function fit() {
   // In portrait the buttons need their own strip; in landscape they sit in the

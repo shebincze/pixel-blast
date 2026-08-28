@@ -255,6 +255,9 @@ konstantně paměťově nenáročný i po tisících úseků.
 
 ## Ladění
 
+Adresa hry bere parametr `?level=2` nebo `?level=3` a spustí rovnou Měsíc, resp.
+jeskyni — bez odehrání předchozích levelů.
+
 V konzoli prohlížeče je běžící hra dostupná jako `window.game`
 (např. `game.player.x`, `game.level.enemies`).
 
