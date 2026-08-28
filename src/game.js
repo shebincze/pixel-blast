@@ -2,7 +2,8 @@ import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js';
 import { Player, overlaps } from './player.js';
 import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js';
 import { Shop, SHOP_ITEMS } from './shop.js';
-import { drawText } from './font.js';
+import { Cloud } from './cloud.js';
+import { drawText, normalizeText } from './font.js';
 
 const START_LIVES = 3;
 const CAMERA_LERP = 8;
@@ -89,6 +90,9 @@ export class Game {
     this.shopMessage = '';
     this.shopMessageTime = 0;
     this.board = loadBoard();
+    this.cloud = new Cloud();
+    this.boardSource = 'local';
+    this.boardLoading = false;
     this.menuIndex = 0;
     this.clouds = Array.from({ length: 8 }, (_, i) => ({
       x: i * 90 + (i % 3) * 17,
@@ -286,6 +290,8 @@ export class Game {
     const gap = boss.x - player.x;
     boss.facingLeft = gap > 0;
 
+    const previousX = boss.x;
+
     // Keep a duelling distance: close in when far, back off when the player charges.
     const desired = 78;
     const speed = 34 + this.bossesBeaten * 6;
@@ -296,8 +302,16 @@ export class Game {
     boss.x = Math.max(this.cameraX + 8, Math.min(this.cameraX + VIEW_W - boss.w - 8, boss.x));
 
     boss.bob += dt;
-    // Hovering low enough that the player's waist-high laser always reaches.
-    boss.y = GROUND_Y - boss.h - 2 + Math.sin(boss.bob * 2.2) * 3;
+    // Hovering low enough that the player's waist-high laser always reaches,
+    // but it climbs over crates and walls instead of sliding through them.
+    const baseY = boss.isFinal
+      ? GROUND_Y - boss.h + Math.sin(boss.bob * 1.8) * 4
+      : GROUND_Y - boss.h - 2 + Math.sin(boss.bob * 2.2) * 3;
+    const target = this.bossHoverTarget(boss, baseY, Math.sign(boss.x - previousX));
+    if (boss.hoverY === undefined) boss.hoverY = baseY;
+    boss.hoverY += (target - boss.hoverY) * Math.min(1, dt * 6);
+    boss.y = boss.hoverY;
+    this.blockBossX(boss, previousX);
 
     if (boss.isFinal) {
       this.updateFinalBoss(boss, dt);
@@ -311,9 +325,46 @@ export class Game {
     }
   }
 
+  /**
+   * Walls the boss has to respect: crates and platforms that sit in the band the
+   * boss normally hovers in. The ground slab itself is skipped, it is the floor.
+   */
+  bossWalls(boss, baseY, x0, x1) {
+    const walls = [];
+    for (const solid of this.level.solidsInRange(x0, x1)) {
+      if (solid.ground) continue;
+      if (solid.y >= baseY + boss.h || solid.y + solid.h <= baseY) continue;
+      walls.push(solid);
+    }
+    return walls;
+  }
+
+  /** Hover height that clears the wall the boss is about to run into. */
+  bossHoverTarget(boss, baseY, direction) {
+    const look = 14 * direction;
+    const x0 = Math.min(boss.x, boss.x + look) - 2;
+    const x1 = Math.max(boss.x + boss.w, boss.x + boss.w + look) + 2;
+    let target = baseY;
+    for (const wall of this.bossWalls(boss, baseY, x0, x1)) {
+      target = Math.min(target, wall.y - boss.h - 2);
+    }
+    return Math.max(12, target);
+  }
+
+  /** Stop the boss at a wall it has not risen above yet. */
+  blockBossX(boss, previousX) {
+    if (boss.x === previousX) return;
+    const movingRight = boss.x > previousX;
+    for (const solid of this.level.solidsInRange(boss.x - 4, boss.x + boss.w + 4)) {
+      if (solid.ground) continue;
+      if (boss.y + boss.h <= solid.y + 1 || boss.y >= solid.y + solid.h) continue;
+      if (boss.x + boss.w <= solid.x || boss.x >= solid.x + solid.w) continue;
+      boss.x = movingRight ? solid.x - boss.w : solid.x + solid.w;
+    }
+  }
+
   /** Final boss: volleys, minions, and a faster second phase under half health. */
   updateFinalBoss(boss, dt) {
-    boss.y = GROUND_Y - boss.h + Math.sin(boss.bob * 1.8) * 4;
 
     if (boss.phase === 1 && boss.hp <= boss.maxHp / 2) {
       boss.phase = 2;
@@ -349,7 +400,9 @@ export class Game {
     boss.dashTimer -= dt;
     if (boss.dashTimer <= 0) {
       boss.dashTimer = boss.phase === 2 ? 3.5 : 5.5;
+      const dashFrom = boss.x;
       boss.x += (this.player.x - boss.x) * 0.35;
+      this.blockBossX(boss, dashFrom);
       this.shake = 0.7;
     }
   }
@@ -409,6 +462,7 @@ export class Game {
       if (this.score > this.best) {
         this.best = this.score;
         localStorage.setItem(BEST_KEY, String(this.best));
+        this.queueCloudSave(true);
       }
       this.state = 'ending';
       return;
@@ -620,7 +674,10 @@ export class Game {
     const item = MENU_ITEMS[this.menuIndex];
     if (item.id === 'new') this.state = 'name';
     else if (item.id === 'shop') this.openShop();
-    else if (item.id === 'board') this.state = 'leaderboard';
+    else if (item.id === 'board') {
+      this.state = 'leaderboard';
+      this.refreshBoard();
+    }
     return undefined;
   }
 
@@ -682,12 +739,14 @@ export class Game {
     if (row.id === 'skin_default') {
       this.shop.equipDefault();
       setPlayerShirt(this.shop.skin);
+      this.queueCloudSave();
       this.showShopMessage('nasazeno', '#8fe08f');
       this.sound.confirm();
       return;
     }
 
     const result = this.shop.buy(row);
+    if (result === 'bought' || result === 'equipped') this.queueCloudSave();
     if (result === 'bought') {
       if (row.skin) setPlayerShirt(this.shop.skin);
       this.showShopMessage('koupeno!', '#8fe08f');
@@ -713,14 +772,58 @@ export class Game {
 
   /** Called by the HTML name field once the player confirms. */
   setPlayerName(rawName) {
-    const cleaned = String(rawName || '')
-      .toUpperCase()
-      .replace(/[^A-Z0-9 .!-]/g, '')
+    // Any letters are welcome - accents included; the font folds whatever it
+    // cannot draw down to its plain latin base.
+    const cleaned = normalizeText(rawName || '')
+      .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 10);
+      .slice(0, 12);
     this.playerName = cleaned || 'HONZIK';
     localStorage.setItem(NAME_KEY, this.playerName);
+    this.signInCloud();
     this.startIntro();
+  }
+
+  /**
+   * Claim the cloud profile for this install, pull coins and purchases down, then
+   * push the merged state back. Runs in the background: a failure just leaves the
+   * game on its local save.
+   */
+  async signInCloud() {
+    if (!this.cloud.enabled) return;
+    const local = { ...this.shop.snapshot(), best: this.best };
+    const remote = await this.cloud.signIn(this.playerName, local);
+    if (remote) {
+      if (this.shop.applyRemote(remote)) setPlayerShirt(this.shop.skin);
+      if (remote.best > this.best) {
+        this.best = remote.best;
+        localStorage.setItem(BEST_KEY, String(this.best));
+      }
+    }
+    this.queueCloudSave(true);
+  }
+
+  /** Mirror wallet, purchases and record to the cloud profile. */
+  queueCloudSave(immediate = false) {
+    if (!this.cloud.enabled) return;
+    this.cloud.saveProfile(
+      { name: this.playerName, best: this.best, ...this.shop.snapshot() },
+      immediate,
+    );
+  }
+
+  /** Pull the shared leaderboard; keep showing the local one until it lands. */
+  async refreshBoard() {
+    if (!this.cloud.enabled || this.boardLoading) return;
+    this.boardLoading = true;
+    const rows = await this.cloud.fetchBoard(BOARD_SIZE);
+    this.boardLoading = false;
+    if (rows) {
+      this.board = rows;
+      this.boardSource = 'cloud';
+    } else {
+      this.boardSource = 'offline';
+    }
   }
 
   /** Store the finished run in the local top ten. */
@@ -734,6 +837,13 @@ export class Game {
     this.board.sort((a, b) => b.score - a.score);
     this.board = this.board.slice(0, BOARD_SIZE);
     saveBoard(this.board);
+    this.cloud.submitScore({
+      name: this.playerName,
+      score: this.score,
+      level: this.levelIndex,
+      coins: this.coins,
+    });
+    this.queueCloudSave(true);
   }
 
   /** Opening scene: Honzik wakes up, spots the laser pistol, and the run begins. */
@@ -1104,6 +1214,7 @@ export class Game {
         coin.taken = true;
         this.coins++;
         this.shop.earn();
+        this.queueCloudSave();
         this.sound.coin();
       }
     }
@@ -1159,6 +1270,7 @@ export class Game {
       if (this.score > this.best) {
         this.best = this.score;
         localStorage.setItem(BEST_KEY, String(this.best));
+        this.queueCloudSave(true);
       }
       return;
     }
@@ -1817,11 +1929,21 @@ export class Game {
 
     drawText(ctx, 'LEADERBOARD', mid, 12, { color: '#ffe14a', align: 'center', scale: 2 });
 
+    const note =
+      this.boardSource === 'cloud'
+        ? 'online zebricek'
+        : this.boardLoading
+          ? 'nacitam online...'
+          : this.cloud.enabled
+            ? 'offline - jen tento telefon'
+            : '';
+    if (note) drawText(ctx, note, mid, 29, { color: '#6a6a80', align: 'center' });
+
     if (!this.board.length) {
       drawText(ctx, 'zatim zadne skore', mid, 80, { color: '#8a8aa0', align: 'center' });
     } else {
       this.board.forEach((entry, index) => {
-        const y = 36 + index * 12;
+        const y = 40 + index * 12;
         const color = entry.name === this.playerName ? '#8fe08f' : '#c8c8d8';
         drawText(ctx, `${index + 1}.`, 24, y, { color });
         drawText(ctx, entry.name, 48, y, { color });

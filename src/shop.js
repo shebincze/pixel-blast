@@ -95,6 +95,41 @@ export class Shop {
     this.equip(DEFAULT_SKIN);
   }
 
+  /** Everything worth storing in the cloud profile. */
+  snapshot() {
+    return { coins: this.coins, owned: [...this.owned], skin: this.skin };
+  }
+
+  /**
+   * Merge a cloud profile into the local save on sign-in: the wallet takes the
+   * higher of the two, purchases are unioned, the equipped skin follows the
+   * server. Returns true when the local save actually changed.
+   */
+  applyRemote(remote) {
+    if (!remote) return false;
+    let changed = false;
+    if (Number(remote.coins || 0) > this.coins) {
+      this.coins = Number(remote.coins);
+      changed = true;
+    }
+    for (const id of remote.owned || []) {
+      if (!this.owned.has(id)) {
+        this.owned.add(id);
+        changed = true;
+      }
+    }
+    if (remote.skin && remote.skin !== this.skin) {
+      this.skin = remote.skin;
+      changed = true;
+    }
+    if (changed) {
+      localStorage.setItem(WALLET_KEY, String(this.coins));
+      save(OWNED_KEY, [...this.owned]);
+      localStorage.setItem(SKIN_KEY, this.skin);
+    }
+    return changed;
+  }
+
   get isDefaultSkin() {
     return this.skin === DEFAULT_SKIN;
   }

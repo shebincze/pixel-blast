@@ -147,6 +147,43 @@ Mince sebrané ve hře se sčítají do peněženky, která přežije smrt i res
 Upgrady se kupují jednou a platí navždy, dresy se dají libovolně přepínat.
 Ovládání: šipky vybírají, Enter nebo ťuknutí koupí, R vrátí do menu.
 
+Když je nastavený Supabase (viz níže), peněženka i nákupy se zároveň ukládají
+na server, takže se přenesou i na jiné zařízení.
+
+## Online data (Supabase)
+
+Hra umí běžet čistě lokálně, ale po nastavení Supabase se leaderboard, profily
+hráčů, mince a nákupy drží centrálně v databázi.
+
+**Nastavení**
+
+1. V Supabase vytvoř projekt (region Frankfurt / EU Central je nejblíž).
+2. V `SQL Editoru` spusť `supabase/schema.sql`. Skript založí tabulky
+   `players` a `scores`, pohled `leaderboard`, politiky RLS a zároveň
+   leaderboard vyresetuje (tabulky se nejdřív zahodí).
+3. V `Project Settings → API` zkopíruj `Project URL` a veřejný `anon` klíč
+   do `src/cloud-config.js`.
+4. `npm run build` (a pro Android `npm run sync`).
+
+Pro pozdější reset samotného žebříčku, bez mazání profilů, slouží
+`supabase/reset-leaderboard.sql`.
+
+**Co se ukládá**
+
+| Tabulka | Obsah |
+| --- | --- |
+| `players` | jeden řádek na instalaci (`device_id`): jméno, mince, koupené zboží, dres, rekord |
+| `scores` | jeden dohraný běh: jméno, skóre, level, mince |
+| `leaderboard` | pohled — nejlepší běh každého jména, hra z něj bere top 10 |
+
+Anon klíč je veřejný (je to klientská hra), zápis proto hlídá jen RLS
+s limity na délku jména a rozsah skóre. Kdo si klíč vytáhne z aplikace, umí
+si zapsat skóre — na hobby žebříček to stačí, na turnaj ne.
+
+Bez vyplněného `src/cloud-config.js` je vše jako dřív: hra jede offline nad
+`localStorage`. Když server nejede nebo je telefon offline, hra to jen tiše
+přejde a v leaderboardu napíše „offline".
+
 ## Struktura
 
 | Soubor | Obsah |
@@ -157,6 +194,9 @@ Ovládání: šipky vybírají, Enter nebo ťuknutí koupí, R vrátí do menu.
 | `src/font.js` | bitmapový font 5×7 a vykreslování ostrého textu |
 | `src/audio.js` | syntéza všech zvuků a hudby přes Web Audio |
 | `src/shop.js` | peněženka, zboží a uložené nákupy |
+| `src/cloud.js` | komunikace se Supabase (leaderboard, profil, mince, nákupy) |
+| `src/cloud-config.js` | adresa projektu a veřejný anon klíč |
+| `supabase/schema.sql` | schéma databáze, politiky RLS a reset leaderboardu |
 | `scripts/build.mjs` | zkopíruje hru do `www/` pro Capacitor |
 | `android/` | nativní Android projekt (Capacitor) |
 | `src/input.js` | klávesnice + dotyk, držené klávesy i jednorázové stisky |
