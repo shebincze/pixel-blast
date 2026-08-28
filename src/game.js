@@ -1,9 +1,9 @@
-import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js';
-import { Player, overlaps } from './player.js';
-import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js';
-import { Shop, SHOP_ITEMS } from './shop.js';
-import { Cloud } from './cloud.js';
-import { drawText, normalizeText } from './font.js';
+import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js?v=6e372d6f';
+import { Player, overlaps } from './player.js?v=6e372d6f';
+import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js?v=6e372d6f';
+import { Shop, SHOP_ITEMS } from './shop.js?v=6e372d6f';
+import { Cloud } from './cloud.js?v=6e372d6f';
+import { drawText, normalizeText } from './font.js?v=6e372d6f';
 
 const START_LIVES = 3;
 const CAMERA_LERP = 8;

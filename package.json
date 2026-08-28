@@ -5,9 +5,10 @@
   "description": "Pixel Blast - pixelova skakacka (web + Android)",
   "scripts": {
     "serve": "python3 -m http.server 5173",
-    "build": "node scripts/build.mjs",
+    "build": "node scripts/stamp.mjs && node scripts/build.mjs",
     "sync": "npm run build && npx cap sync android",
-    "android": "npm run sync && npx cap open android"
+    "android": "npm run sync && npx cap open android",
+    "stamp": "node scripts/stamp.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
