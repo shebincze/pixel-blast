@@ -13,13 +13,14 @@ const BOARD_KEY = 'pixelblast.board';
 const NAME_KEY = 'pixelblast.name';
 const BOARD_SIZE = 10;
 
-const MENU_Y = 92;
+const MENU_Y = 78;
 const MENU_STEP = 16;
 
 const MENU_ITEMS = [
   { id: 'new', label: 'nova hra' },
   { id: 'shop', label: 'obchod' },
   { id: 'board', label: 'leaderboard' },
+  { id: 'name', label: 'zmenit jmeno' },
 ];
 
 const SHOP_ROW_Y = 42;
@@ -84,6 +85,9 @@ export class Game {
     this.state = 'menu';
     this.time = 0;
     this.best = Number(localStorage.getItem(BEST_KEY) || 0);
+    // The name is asked once; after that every run reuses it and it can only be
+    // changed from the menu.
+    this.hasName = Boolean(localStorage.getItem(NAME_KEY));
     this.playerName = localStorage.getItem(NAME_KEY) || 'HRAC';
     this.shop = new Shop();
     setPlayerShirt(this.shop.skin);
@@ -100,6 +104,8 @@ export class Game {
       scale: 1 + (i % 3) * 0.4,
     }));
     this.newRun();
+    // A returning player is already known, so the cloud profile can load right away.
+    if (this.hasName) this.signInCloud();
   }
 
   newRun() {
@@ -656,7 +662,7 @@ export class Game {
     if (input.tap) {
       const hit = MENU_ITEMS.findIndex((item, index) => {
         const y = MENU_Y + index * MENU_STEP;
-        return input.tap.y > y - 6 && input.tap.y < y + 12;
+        return input.tap.y > y - 3 && input.tap.y < y + 13;
       });
       if (hit >= 0) {
         this.menuIndex = hit;
@@ -672,7 +678,10 @@ export class Game {
   chooseMenuItem() {
     this.sound.confirm();
     const item = MENU_ITEMS[this.menuIndex];
-    if (item.id === 'new') this.state = 'name';
+    if (item.id === 'new') {
+      if (this.hasName) this.startIntro();
+      else this.state = 'name';
+    } else if (item.id === 'name') this.state = 'name';
     else if (item.id === 'shop') this.openShop();
     else if (item.id === 'board') {
       this.state = 'leaderboard';
@@ -779,6 +788,7 @@ export class Game {
       .trim()
       .slice(0, 12);
     this.playerName = cleaned || 'HONZIK';
+    this.hasName = true;
     localStorage.setItem(NAME_KEY, this.playerName);
     this.signInCloud();
     this.startIntro();
@@ -1810,8 +1820,10 @@ export class Game {
 
     drawText(ctx, 'PIXEL', mid, 18, { color: '#7ef2ff', align: 'center', scale: 3 });
     drawText(ctx, 'BLAST', mid, 42, { color: '#ffe14a', align: 'center', scale: 3 });
-    drawText(ctx, `hrac: ${this.playerName}`, mid, 66, { color: '#a0a0c0', align: 'center' });
-    drawText(ctx, `mince: ${this.shop.coins}`, mid, 78, { color: '#ffd24a', align: 'center' });
+    drawText(ctx, `${this.playerName}   mince: ${this.shop.coins}`, mid, 68, {
+      color: '#ffd24a',
+      align: 'center',
+    });
 
     MENU_ITEMS.forEach((item, index) => {
       const y = MENU_Y + index * MENU_STEP;
@@ -1821,12 +1833,12 @@ export class Game {
     });
 
     if (this.state === 'name') {
-      drawText(ctx, 'zadej jmeno postavy', mid, 140, { color: '#ffe14a', align: 'center' });
+      drawText(ctx, 'zadej jmeno postavy', mid, 142, { color: '#ffe14a', align: 'center' });
     } else {
-      drawText(ctx, 'sipky = vyber, enter / tap = potvrdit', mid, 140, { color: '#8a8aa0', align: 'center' });
+      drawText(ctx, 'sipky = vyber, enter / tap = potvrdit', mid, 142, { color: '#8a8aa0', align: 'center' });
     }
 
-    drawText(ctx, 'X = laser, mezernik = skok (2x dvojskok)', mid, 150, {
+    drawText(ctx, 'X = laser, mezernik = skok (2x dvojskok)', mid, 151, {
       color: '#8a8aa0',
       align: 'center',
     });
@@ -1835,7 +1847,7 @@ export class Game {
       align: 'center',
     });
     if (this.best > 0) {
-      drawText(ctx, `rekord: ${this.best}`, mid, 170, { color: '#a0a0c0', align: 'center' });
+      drawText(ctx, `rekord: ${this.best}`, mid, 169, { color: '#a0a0c0', align: 'center' });
     }
   }
 

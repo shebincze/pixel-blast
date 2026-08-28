@@ -37,6 +37,13 @@ nameForm.addEventListener('submit', (event) => {
   game.setPlayerName(nameInput.value);
 });
 
+// Some soft keyboards send Enter without triggering implicit form submission.
+nameInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  nameForm.requestSubmit();
+});
+
 function syncNameOverlay() {
   const wanted = game.state === 'name';
   const shown = !nameOverlay.classList.contains('hidden');

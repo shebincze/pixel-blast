@@ -18,6 +18,16 @@ const KEY_MAP = {
   KeyR: 'restart',
 };
 
+/**
+ * True while the event went to a text field. The game maps plain letters (A, D,
+ * W, S, X, M, R...) to actions and swallows them, which would make those letters
+ * impossible to type into the name field.
+ */
+function isTyping(event) {
+  const target = event.target;
+  return target instanceof Element && Boolean(target.closest('input, textarea, [contenteditable="true"]'));
+}
+
 export class Input {
   constructor() {
     this.held = new Set();
@@ -26,6 +36,7 @@ export class Input {
     this.tap = null; // last tap in canvas pixels, consumed once per frame
 
     window.addEventListener('keydown', (event) => {
+      if (isTyping(event)) return;
       // Arrow up doubles as menu navigation; the game decides which it means.
       if (event.code === 'ArrowUp' || event.code === 'KeyW') this.pressed.add('menuUp');
       const action = KEY_MAP[event.code];
@@ -36,6 +47,7 @@ export class Input {
     });
 
     window.addEventListener('keyup', (event) => {
+      if (isTyping(event)) return;
       const action = KEY_MAP[event.code];
       if (!action) return;
       event.preventDefault();
@@ -70,6 +82,8 @@ export class Input {
     window.addEventListener('pointerdown', (event) => {
       const target = event.target;
       if (target instanceof Element && target.closest('[data-key]')) return;
+      // Tapping the name overlay must not count as "start" for the menu behind it.
+      if (target instanceof Element && target.closest('#name-overlay')) return;
       this.touchUsed = true;
       this.pressed.add('start');
     });
