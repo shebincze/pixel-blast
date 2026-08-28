@@ -16,6 +16,8 @@ const KEY_MAP = {
   KeyM: 'mute',
   Enter: 'start',
   KeyR: 'restart',
+  Escape: 'pause',
+  KeyP: 'pause',
 };
 
 /**

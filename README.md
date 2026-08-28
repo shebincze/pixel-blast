@@ -40,6 +40,10 @@ nebo tapem.
 | Skok (2× = dvojskok) | mezerník, šipka nahoru, `W` | tlačítko ▲ |
 | Laser | `X`, `K`, `J` | tlačítko ✷ |
 | Start / restart | `Enter`, `R` | tap kamkoli |
+| Pauza / menu během hry | `Esc`, `P` | tlačítko `II` v rohu |
+
+Pauza nabídne pokračovat, nebo odejít do hlavního menu — tím ale běh končí a
+skóre se nezapíše. Mince sebrané do té chvíle v peněžence zůstanou.
 
 ## Herní pravidla
 

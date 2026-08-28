@@ -23,6 +23,13 @@ const MENU_ITEMS = [
   { id: 'name', label: 'zmenit jmeno' },
 ];
 
+const PAUSE_ROW_Y = 82;
+
+const PAUSE_ITEMS = [
+  { id: 'resume', label: 'pokracovat' },
+  { id: 'menu', label: 'hlavni menu' },
+];
+
 const SHOP_ROW_Y = 42;
 const SHOP_ROW_STEP = 12;
 const SHOT_COOLDOWN = 0.28;
@@ -188,6 +195,11 @@ export class Game {
       return;
     }
 
+    if (this.state === 'paused') {
+      this.updatePause();
+      return;
+    }
+
     if (this.state === 'intro') {
       this.updateIntro(dt);
       return;
@@ -206,6 +218,8 @@ export class Game {
       if (this.input.wasPressed('menuDown') || this.input.wasPressed('menuUp')) this.state = 'menu';
       return;
     }
+
+    if (this.input.wasPressed('pause')) return this.pauseRun();
 
     this.level.ensureAhead(this.cameraX);
     this.level.update(this.time, dt);
@@ -681,6 +695,57 @@ export class Game {
     }
 
     if (this.confirmPressed) return this.chooseMenuItem();
+    return undefined;
+  }
+
+  /** Stop the run and show the pause menu. Music stops with the state change. */
+  pauseRun() {
+    this.state = 'paused';
+    this.pauseIndex = 0;
+    this.sound.select();
+    return undefined;
+  }
+
+  updatePause() {
+    const input = this.input;
+    if (input.wasPressed('pause')) {
+      this.state = 'play';
+      this.sound.confirm();
+      return;
+    }
+    if (input.wasPressed('menuDown')) {
+      this.pauseIndex = (this.pauseIndex + 1) % PAUSE_ITEMS.length;
+      this.sound.select();
+    }
+    if (input.wasPressed('menuUp')) {
+      this.pauseIndex = (this.pauseIndex - 1 + PAUSE_ITEMS.length) % PAUSE_ITEMS.length;
+      this.sound.select();
+    }
+
+    if (input.tap) {
+      const hit = PAUSE_ITEMS.findIndex((item, index) => {
+        const y = PAUSE_ROW_Y + index * MENU_STEP;
+        return input.tap.y > y - 3 && input.tap.y < y + 13;
+      });
+      if (hit < 0) return;
+      this.pauseIndex = hit;
+      return this.choosePauseItem();
+    }
+
+    if (this.confirmPressed) this.choosePauseItem();
+  }
+
+  choosePauseItem() {
+    this.sound.confirm();
+    if (PAUSE_ITEMS[this.pauseIndex].id === 'resume') {
+      this.state = 'play';
+      return undefined;
+    }
+    // Leaving mid-run drops the score; coins picked up so far stay in the wallet.
+    this.queueCloudSave(true);
+    this.newRun();
+    this.state = 'menu';
+    this.menuIndex = 0;
     return undefined;
   }
 
@@ -1355,7 +1420,8 @@ export class Game {
     }
 
     // The HUD belongs to a run, not to the menus.
-    if (this.state === 'play' || this.state === 'dead') this.drawHud();
+    if (this.state === 'play' || this.state === 'dead' || this.state === 'paused') this.drawHud();
+    if (this.state === 'paused') this.drawPause();
     if (this.state === 'menu' || this.state === 'name') this.drawMenu();
     if (this.state === 'dead') this.drawGameOver();
   }
@@ -1938,6 +2004,31 @@ export class Game {
 
     drawText(ctx, 'sipky = vyber, enter / tap = koupit, R = zpet', mid, VIEW_H - 9, {
       color: '#6a6a80',
+      align: 'center',
+    });
+  }
+
+  drawPause() {
+    const ctx = this.ctx;
+    dim(ctx);
+    const mid = VIEW_W / 2;
+
+    drawText(ctx, 'PAUZA', mid, 34, { color: '#ffe14a', align: 'center', scale: 3 });
+    drawText(ctx, `skore: ${this.score}   mince: ${this.coins}`, mid, 62, {
+      color: '#a0a0c0',
+      align: 'center',
+    });
+
+    PAUSE_ITEMS.forEach((item, index) => {
+      const y = PAUSE_ROW_Y + index * MENU_STEP;
+      const active = index === this.pauseIndex;
+      const color = active ? (blink(this.time) ? '#8fe08f' : '#5fa05f') : '#c8c8d8';
+      drawText(ctx, `${active ? '> ' : '  '}${item.label}`, mid, y, { color, align: 'center', scale: 2 });
+    });
+
+    drawText(ctx, 'z menu se beh nedohraje', mid, 128, { color: '#8a8aa0', align: 'center' });
+    drawText(ctx, 'ESC / P / tlacitko II = zpet do hry', mid, 140, {
+      color: '#8a8aa0',
       align: 'center',
     });
   }
