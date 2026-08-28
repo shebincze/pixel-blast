@@ -87,7 +87,7 @@ export class Cloud {
   async signIn(name, local) {
     if (!this.enabled) return null;
     const rows = await this.request(
-      `players?on_conflict=device_id&select=id,name,coins,owned,skin,best_score`,
+      `players?on_conflict=device_id&select=id,name,coins,owned,skin,best_score,daily_date,daily_streak`,
       {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -98,6 +98,8 @@ export class Cloud {
           owned: local.owned,
           skin: local.skin,
           best_score: local.best,
+          daily_date: local.dailyDate || null,
+          daily_streak: local.dailyStreak || 0,
         }),
       },
     );
@@ -109,6 +111,8 @@ export class Cloud {
       owned: Array.isArray(row.owned) ? row.owned : [],
       skin: row.skin || local.skin,
       best: Number(row.best_score || 0),
+      dailyDate: row.daily_date || '',
+      dailyStreak: Number(row.daily_streak || 0),
     };
   }
 
@@ -142,6 +146,8 @@ export class Cloud {
         owned: profile.owned,
         skin: profile.skin,
         best_score: profile.best,
+        daily_date: profile.dailyDate || null,
+        daily_streak: profile.dailyStreak || 0,
         updated_at: new Date().toISOString(),
       }),
     });

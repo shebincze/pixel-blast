@@ -15,6 +15,8 @@ create table public.players (
   owned text[] not null default '{}',
   skin text,
   best_score integer not null default 0,
+  daily_date date,
+  daily_streak integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

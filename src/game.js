@@ -31,7 +31,7 @@ const PAUSE_ITEMS = [
 ];
 
 const SHOP_ROW_Y = 42;
-const SHOP_ROW_STEP = 12;
+const SHOP_ROW_STEP = 11;
 const SHOT_COOLDOWN = 0.28;
 const BULLET_SPEED = 280;
 const BULLET_LIFE = 1.1;
@@ -780,6 +780,7 @@ export class Game {
       // First row, not last: on a phone the bottom corners sit under the
       // on-screen buttons, so a row down there cannot be tapped.
       { id: 'back', name: 'zpet do menu' },
+      { id: 'daily', name: 'denni bonus', detail: 'mince zdarma, kazdy den vic' },
       ...SHOP_ITEMS,
       { id: 'skin_default', name: 'modry dres', detail: 'vychozi barva postavy', price: 0, skin: '#3aa0e0' },
     ];
@@ -822,7 +823,7 @@ export class Game {
     if (input.tap) {
       const hit = rows.findIndex((row, index) => {
         const y = SHOP_ROW_Y + index * SHOP_ROW_STEP;
-        return input.tap.y > y - 5 && input.tap.y < y + 10;
+        return input.tap.y > y - 2 && input.tap.y < y + 9;
       });
       if (hit < 0) return;
       this.shopIndex = hit;
@@ -837,6 +838,19 @@ export class Game {
     if (row.id === 'back') {
       this.sound.confirm();
       this.state = 'menu';
+      return;
+    }
+
+    if (row.id === 'daily') {
+      const reward = this.shop.claimDaily();
+      if (!reward) {
+        this.showShopMessage('dnes uz vybrano', '#8a8aa0');
+        this.sound.select();
+        return;
+      }
+      this.queueCloudSave(true);
+      this.showShopMessage(`+${reward} minci, den ${this.shop.daily.streak}`, '#ffd24a');
+      this.sound.power();
       return;
     }
 
@@ -1925,7 +1939,13 @@ export class Game {
       const y = MENU_Y + index * MENU_STEP;
       const active = index === this.menuIndex;
       const color = active ? (blink(this.time) ? '#8fe08f' : '#5fa05f') : '#c8c8d8';
-      drawText(ctx, `${active ? '> ' : '  '}${item.label}`, mid, y, { color, align: 'center', scale: 2 });
+      // A waiting daily bonus is worth pointing at from the menu.
+      const flag = item.id === 'shop' && this.shop.canClaimDaily() ? ' !' : '';
+      drawText(ctx, `${active ? '> ' : '  '}${item.label}${flag}`, mid, y, {
+        color,
+        align: 'center',
+        scale: 2,
+      });
     });
 
     if (this.state === 'name') {
@@ -1994,7 +2014,8 @@ export class Game {
     rows.forEach((row, index) => {
       const y = SHOP_ROW_Y + index * SHOP_ROW_STEP;
       const active = index === this.shopIndex;
-      const owned = row.id !== 'back' && row.id !== 'skin_default' && this.shop.has(row.id);
+      const owned =
+        row.id !== 'back' && row.id !== 'daily' && row.id !== 'skin_default' && this.shop.has(row.id);
       const equipped = row.skin && this.shop.skin === row.skin;
 
       let color = '#c8c8d8';
@@ -2004,6 +2025,14 @@ export class Game {
       drawText(ctx, `${active ? '>' : ' '} ${row.name}`, 22, y, { color });
 
       if (row.id === 'back') return;
+      if (row.id === 'daily') {
+        const ready = this.shop.canClaimDaily();
+        drawText(ctx, ready ? `+${this.shop.nextDailyReward()}` : 'zitra', VIEW_W - 22, y, {
+          color: ready ? '#ffd24a' : '#7ea0a0',
+          align: 'right',
+        });
+        return;
+      }
       if (equipped) {
         drawText(ctx, 'nasazeno', VIEW_W - 22, y, { color: '#8fe08f', align: 'right' });
       } else if (owned) {

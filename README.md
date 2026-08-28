@@ -140,6 +140,7 @@ Mince sebrané ve hře se sčítají do peněženky, která přežije smrt i res
 
 | Zboží | Cena | Efekt |
 | --- | --- | --- |
+| denní bonus | zdarma | mince jednou za den, 50 za první den a +10 za každý den v řadě až do 100 |
 | srdce navíc | 150 | běh začíná se 4 životy |
 | startovní štít | 220 | každý běh začíná se štítem |
 | rychlejší laser | 260 | trvale o 25 % kratší cooldown |
@@ -149,7 +150,11 @@ Mince sebrané ve hře se sčítají do peněženky, která přežije smrt i res
 | modrý dres | zdarma | návrat k výchozí barvě |
 
 Upgrady se kupují jednou a platí navždy, dresy se dají libovolně přepínat.
-Ovládání: šipky vybírají, Enter nebo ťuknutí koupí, R vrátí do menu.
+Denní bonus jde vybrat jednou za kalendářní den; vynechaný den srazí sérii zpět
+na začátek. Když bonus čeká, svítí u položky Obchod v hlavním menu vykřičník.
+
+Ovládání: šipky vybírají, Enter nebo ťuknutí koupí, `R` nebo tlačítko v rohu
+vrátí do menu. Na dotyku posouvají výběr i tlačítka ◀ ▶.
 
 Když je nastavený Supabase (viz níže), peněženka i nákupy se zároveň ukládají
 na server, takže se přenesou i na jiné zařízení.
@@ -179,7 +184,7 @@ Pro pozdější reset samotného žebříčku, bez mazání profilů, slouží
 
 | Tabulka | Obsah |
 | --- | --- |
-| `players` | jeden řádek na instalaci (`device_id`): jméno, mince, koupené zboží, dres, rekord |
+| `players` | jeden řádek na instalaci (`device_id`): jméno, mince, koupené zboží, dres, rekord, datum a série denního bonusu |
 | `scores` | jeden dohraný běh: jméno, skóre, level, mince |
 | `leaderboard` | pohled — nejlepší běh každého jména, hra z něj bere top 10 |
 
