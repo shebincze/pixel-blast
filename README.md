@@ -155,14 +155,17 @@ na server, takže se přenesou i na jiné zařízení.
 Hra umí běžet čistě lokálně, ale po nastavení Supabase se leaderboard, profily
 hráčů, mince a nákupy drží centrálně v databázi.
 
-**Nastavení**
+Projekt už běží: `pixel-blast` v organizaci `richpear`, region `eu-central-1`
+(Frankfurt), free plán. Adresa a veřejný klíč jsou v `src/cloud-config.js`.
 
-1. V Supabase vytvoř projekt (region Frankfurt / EU Central je nejblíž).
+**Když se zakládá znovu (nebo nový projekt)**
+
+1. V Supabase vytvoř projekt (region EU Central je nejblíž).
 2. V `SQL Editoru` spusť `supabase/schema.sql`. Skript založí tabulky
    `players` a `scores`, pohled `leaderboard`, politiky RLS a zároveň
    leaderboard vyresetuje (tabulky se nejdřív zahodí).
-3. V `Project Settings → API` zkopíruj `Project URL` a veřejný `anon` klíč
-   do `src/cloud-config.js`.
+3. V `Project Settings → API` zkopíruj `Project URL` a veřejný klíč
+   (`sb_publishable_…`, případně starší `anon`) do `src/cloud-config.js`.
 4. `npm run build` (a pro Android `npm run sync`).
 
 Pro pozdější reset samotného žebříčku, bez mazání profilů, slouží
