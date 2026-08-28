@@ -146,6 +146,8 @@ Třetí level je podzemní a hraje se jinak než oba předchozí:
 - **Stalaktity** visí ze stropu, zachrastí, když pod nimi projdeš, a po chvilce
   spadnou. Kdo nezrychlí, dostane kamenem.
 - **Krystalové pilíře** místo beden — dají se použít jako kryt proti střelám.
+- **Lávové jezero** se přechází po plovoucích kamenných deskách.
+- **Šachta** s odskákatelnými římsami vzhůru, na jejím konci visí power-up.
 
 Noví nepřátelé mají vlastní design i chování:
 
@@ -155,13 +157,25 @@ Noví nepřátelé mají vlastní design i chování:
 | pavouk | 3 | visí na vlákně u stropu, spadne přesně když pod ním projdeš, pak leze po zemi |
 | lávový slimák | 3 | pomalý a odolný, po zabití se **rozdělí na dva malé** (1 život, ale rychlejší) |
 
-Mini bossové po 500 bodech mají v jeskyni **trojnásobek životů** a podobu kamenného
-balvanu s krystalovým jádrem.
+Mini bossové po 500 bodech mají v jeskyni **trojnásobek životů**, podobu kamenného
+balvanu s krystalovým jádrem a úplně jiné chování než ti na Zemi a Měsíci —
+nestřílí a nelétají:
+
+- **kutálí se po zemi** a drží si odstup,
+- občas se **rozjede přímo na hráče** (dá se přeskočit),
+- **bouchne do stropu** a shodí dva balvany přesně tam, kde hráč stojí.
+  Na stropě se nejdřív objeví praskliny, takže se dá uhnout.
 
 ## Konec hry — kamenný golem
 
-Na **6000 bodech** se objeví finální **kamenný golem**: 34 životů, dvojnásobné
-měřítko spritu, dvě fáze a stejné salvy jako ostatní hlavní bossové.
+Na **9000 bodech** se objeví finální **kamenný golem**: 46 životů, dvojnásobné
+měřítko spritu a vlastní sada útoků — kamenné tělo s mechem na ramenou a
+krystalovým jádrem v hrudi, žádný létající stroj:
+
+- **hází balvany obloukem**, takže se nedají podběhnout jako přímé střely,
+- **dupne** a před hráčem vytryskne trojice **lávových gejzírů**,
+- pod polovinou životů se mu **rozlomí krystalové jádro**: střílí dvakrát, dupe
+  častěji a shazuje na hráče kameny ze stropu.
 
 Po jeho poražení se objeví závěrečná obrazovka **„POKRACOVANI PRISTE“** se souhrnem
 běhu; skóre se zapíše do leaderboardu.

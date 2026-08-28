@@ -1,9 +1,9 @@
-import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js?v=6e372d6f';
-import { Player, overlaps } from './player.js?v=6e372d6f';
-import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js?v=6e372d6f';
-import { Shop, SHOP_ITEMS } from './shop.js?v=6e372d6f';
-import { Cloud } from './cloud.js?v=6e372d6f';
-import { drawText, normalizeText } from './font.js?v=6e372d6f';
+import { Level, TILE, VIEW_W, VIEW_H, GROUND_Y } from './level.js?v=be306a75';
+import { Player, overlaps } from './player.js?v=be306a75';
+import { sprites, drawSprite, drawSpriteTinted, setPlayerShirt } from './sprites.js?v=be306a75';
+import { Shop, SHOP_ITEMS } from './shop.js?v=be306a75';
+import { Cloud } from './cloud.js?v=be306a75';
+import { drawText, normalizeText } from './font.js?v=be306a75';
 
 const START_LIVES = 3;
 const CAMERA_LERP = 8;
@@ -57,7 +57,7 @@ const FINAL_BOSS_SCORE = 2000; // level one ends with this fight
 const MOON_GRAVITY_SCALE = 0.45;
 const SHIP_SCALE = 2; // the rocket is drawn at double size
 const LEVEL2_END_SCORE = 4000; // the robot shows up once the moon run gets this far
-const LEVEL3_END_SCORE = 6000; // the cave ends with the rock golem
+const LEVEL3_END_SCORE = 9000; // the cave ends with the rock golem
 const FALL_TIME = 6; // seconds of falling through the rock between level 2 and 3
 const SPACE_TRAVEL_TIME = 7; // seconds of Earth-to-Moon flight
 const ROOM_SCALE = 2; // the bedroom intro is a close-up, drawn at double size
@@ -289,7 +289,7 @@ export class Game {
 
     // The cave ends with its own final fight: a rock golem.
     if (this.levelIndex === 3 && !this.caveBossDone && this.score >= LEVEL3_END_SCORE) {
-      this.boss = this.level.addFinalBoss(this.cameraX + VIEW_W + 20, 34, 'cave');
+      this.boss = this.level.addFinalBoss(this.cameraX + VIEW_W + 20, 46, 'cave');
       this.boss.isCave = true;
       this.bossBanner = 3;
       this.sound.bossAppear();
@@ -319,6 +319,10 @@ export class Game {
       this.defeatBoss(boss);
       return;
     }
+
+    // The cave fights are fought on the floor, not in the air.
+    if (boss.isCave) return this.updateGolem(boss, dt);
+    if (boss.grounded) return this.updateCaveBoss(boss, dt);
 
     const player = this.player;
     const gap = boss.x - player.x;
@@ -397,6 +401,114 @@ export class Game {
     }
   }
 
+  /**
+   * Cave mini boss: a boulder that rolls along the floor. It paces, charges in a
+   * straight line (jump over it) and slams the roof to drop rocks on the player.
+   */
+  updateCaveBoss(boss, dt) {
+    const player = this.player;
+    boss.y = GROUND_Y - boss.h;
+    boss.roll = (boss.roll || 0) + dt * (boss.charge > 0 ? 14 : 4);
+
+    if (boss.charge > 0) {
+      boss.charge -= dt;
+      const chargeFrom = boss.x;
+      boss.x += (boss.facingLeft ? -1 : 1) * 150 * dt;
+      this.blockBossX(boss, chargeFrom);
+      this.spawnSparks(boss.x + boss.w / 2, GROUND_Y - 2, '#5d4767', 2);
+      if (boss.charge <= 0) {
+        boss.chargeTimer = 3.2;
+        this.shake = 0.5;
+      }
+      return undefined;
+    }
+
+    boss.facingLeft = boss.x > player.x;
+    const gap = boss.x - player.x;
+    const previousX = boss.x;
+    const desired = 72;
+    const speed = 26 + this.bossesBeaten * 4;
+    if (Math.abs(gap) > desired + 12) boss.x -= Math.sign(gap) * speed * dt;
+    else if (Math.abs(gap) < desired - 20) boss.x += Math.sign(gap) * speed * dt;
+    boss.x = Math.max(this.cameraX + 8, Math.min(this.cameraX + VIEW_W - boss.w - 8, boss.x));
+    this.blockBossX(boss, previousX);
+
+    boss.chargeTimer = Math.max(0, (boss.chargeTimer ?? 2.5) - dt);
+    if (boss.chargeTimer <= 0 && Math.abs(gap) < 120) {
+      boss.charge = 1.1;
+      this.sound.bossShot();
+      this.bossBanner = 0.8;
+      return undefined;
+    }
+
+    boss.slamTimer -= dt;
+    if (boss.slamTimer <= 0) {
+      boss.slamTimer = Math.max(3, 5 - this.bossesBeaten * 0.3);
+      this.shake = 0.9;
+      this.sound.hit();
+      this.dropRock(player.x - 3);
+      this.dropRock(player.x + 22);
+    }
+    return undefined;
+  }
+
+  /**
+   * The rock golem that closes the cave: it stands on the floor, lobs boulders in
+   * an arc, stomps up lava geysers, and once its crystal core cracks open it also
+   * brings the roof down on the player.
+   */
+  updateGolem(boss, dt) {
+    const player = this.player;
+    boss.bob += dt;
+    boss.y = GROUND_Y - boss.h + Math.sin(boss.bob * 1.2);
+    boss.facingLeft = boss.x > player.x;
+
+    const previousX = boss.x;
+    const gap = boss.x - player.x;
+    if (Math.abs(gap) > 96) boss.x -= Math.sign(gap) * 26 * dt;
+    else if (Math.abs(gap) < 56) boss.x += Math.sign(gap) * 26 * dt;
+    boss.x = Math.max(this.cameraX + 8, Math.min(this.cameraX + VIEW_W - boss.w - 8, boss.x));
+    this.blockBossX(boss, previousX);
+
+    if (boss.phase === 1 && boss.hp <= boss.maxHp / 2) {
+      boss.phase = 2;
+      boss.hitFlash = HIT_FLASH_TIME;
+      this.shake = 2;
+      this.bossBanner = 1.6;
+      this.sound.bossAppear();
+      this.spawnSparks(boss.x + boss.w / 2, boss.y + boss.h / 2, '#63e0d8', 18);
+    }
+
+    // Boulders lobbed in an arc, two at a time once the core is open.
+    boss.shotTimer -= dt;
+    if (boss.shotTimer <= 0) {
+      boss.shotTimer = boss.phase === 2 ? 1.5 : 2.2;
+      const direction = boss.facingLeft ? -1 : 1;
+      const originX = boss.facingLeft ? boss.x - 6 : boss.x + boss.w;
+      this.throwRock(originX, boss.y + 12, direction * 70, -150);
+      if (boss.phase === 2) this.throwRock(originX, boss.y + 12, direction * 116, -104);
+      this.sound.bossShot();
+    }
+
+    // Stomp: three lava spouts erupt around the player.
+    boss.stompTimer = (boss.stompTimer ?? 3) - dt;
+    if (boss.stompTimer <= 0) {
+      boss.stompTimer = boss.phase === 2 ? 3.4 : 5;
+      this.shake = 1.4;
+      this.sound.explosion();
+      for (let i = 0; i < 3; i++) this.spawnGeyser(player.x - 22 + i * 22);
+    }
+
+    if (boss.phase === 2) {
+      boss.dropTimer = (boss.dropTimer ?? 2.6) - dt;
+      if (boss.dropTimer <= 0) {
+        boss.dropTimer = 2.6;
+        this.dropRock(player.x);
+      }
+    }
+    return undefined;
+  }
+
   /** Final boss: volleys, minions, and a faster second phase under half health. */
   updateFinalBoss(boss, dt) {
 
@@ -454,15 +566,62 @@ export class Game {
     });
   }
 
+  /** Rock lobbed in an arc: gravity pulls it down onto the player. */
+  throwRock(x, y, vx, vy) {
+    this.bossBullets.push({ x, y, w: 6, h: 6, vx, vy, gravity: 260, sprite: 'rockShot', life: 5 });
+  }
+
+  /** Boulder dropped from the cave roof, right above wherever the player stands. */
+  dropRock(x) {
+    this.bossBullets.push({
+      x,
+      y: 30,
+      w: 6,
+      h: 6,
+      vx: 0,
+      vy: 40,
+      gravity: 420,
+      sprite: 'rockShot',
+      warn: 0.6, // it hangs for a moment so the drop can be dodged
+      life: 5,
+    });
+  }
+
+  /** Lava spout that erupts out of the cave floor and dies down again. */
+  spawnGeyser(x) {
+    this.bossBullets.push({
+      x,
+      y: GROUND_Y - 6,
+      w: 6,
+      h: 6,
+      vx: 0,
+      vy: -110,
+      gravity: 220,
+      sprite: 'geyser',
+      life: 1.6,
+    });
+  }
+
   updateBossBullets(dt) {
     for (const shot of this.bossBullets) {
+      if (shot.warn > 0) {
+        shot.warn -= dt;
+        shot.life -= dt;
+        continue; // still hanging under the roof
+      }
       shot.x += shot.vx * dt;
+      if (shot.gravity) {
+        shot.vy = (shot.vy || 0) + shot.gravity * dt;
+        shot.y += shot.vy * dt;
+        if (shot.y > GROUND_Y) shot.life = 0;
+      }
       shot.life -= dt;
       if (shot.x < this.cameraX - 30 || shot.x > this.cameraX + VIEW_W + 30) shot.life = 0;
       if (shot.life <= 0) continue;
 
       // Plasma stops on crates and walls, so cover works against the boss too.
-      for (const solid of this.level.solidsInRange(shot.x - 8, shot.x + 14)) {
+      // Falling rocks and geysers ignore the level, they come from it.
+      for (const solid of shot.gravity ? [] : this.level.solidsInRange(shot.x - 8, shot.x + 14)) {
         if (overlaps(shot, solid)) {
           this.spawnSparks(shot.x + shot.w / 2, shot.y + shot.h / 2, '#ff8a4a', 4);
           shot.life = 0;
@@ -1911,7 +2070,13 @@ export class Game {
     for (const shot of this.bossBullets) {
       const sx = shot.x - camera;
       if (sx > VIEW_W || sx + shot.w < 0) continue;
-      drawSprite(ctx, sprites.bossShot, sx, shot.y);
+      if (shot.warn > 0) {
+        // Warning cracks on the roof before the boulder lets go.
+        ctx.fillStyle = blink(this.time * 4) ? '#ff7a2a' : '#8a5a2a';
+        ctx.fillRect(Math.round(sx), Math.round(shot.y), 6, 2);
+        continue;
+      }
+      drawSprite(ctx, sprites[shot.sprite || 'bossShot'], sx, shot.y);
     }
 
     for (const bullet of this.bullets) {

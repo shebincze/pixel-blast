@@ -260,11 +260,65 @@ export class Level {
 
   /** The cave has its own set of chunks: a roof over every one of them. */
   generateCaveChunk(tileX, difficulty, roll) {
-    if (roll < 0.22) return this.caveHallChunk(tileX, difficulty);
-    if (roll < 0.42) return this.caveLavaChunk(tileX, difficulty);
-    if (roll < 0.60) return this.caveNarrowChunk(tileX, difficulty);
-    if (roll < 0.78) return this.caveCrystalChunk(tileX, difficulty);
-    return this.cavePitChunk(tileX, difficulty);
+    if (roll < 0.17) return this.caveHallChunk(tileX, difficulty);
+    if (roll < 0.34) return this.caveLavaChunk(tileX, difficulty);
+    if (roll < 0.50) return this.caveNarrowChunk(tileX, difficulty);
+    if (roll < 0.66) return this.caveCrystalChunk(tileX, difficulty);
+    if (roll < 0.80) return this.cavePitChunk(tileX, difficulty);
+    if (roll < 0.90) return this.caveBridgeChunk(tileX, difficulty);
+    return this.caveShaftChunk(tileX, difficulty);
+  }
+
+  /** Lava lake crossed on floating rock slabs. */
+  caveBridgeChunk(tileX, difficulty) {
+    const width = this.int(14, 17);
+    const roof = this.int(4, 5);
+    this.addGround(tileX, 3);
+    this.addGround(tileX + width - 3, 3);
+    this.addCeiling(tileX, width, roof);
+
+    const lakeX = tileX + 3;
+    const lake = width - 6;
+    this.addLava(lakeX, lake);
+    // The lake needs a floor, otherwise the player falls straight through it.
+    this.solids.push({ x: lakeX * TILE, y: GROUND_Y, w: lake * TILE, h: TILE * 2, ground: true });
+
+    let px = lakeX + 1;
+    while (px < tileX + width - 4) {
+      const slab = this.int(2, 3);
+      const py = this.int(14, 16);
+      this.addPlatform(px, py, slab);
+      this.addCoin((px + slab / 2) * TILE - 4, py * TILE - 12);
+      px += slab + this.int(2, 3);
+    }
+    if (this.random() < 0.6 + difficulty * 0.3) {
+      this.addBat((tileX + width / 2) * TILE, (roof + 3) * TILE);
+    }
+    return width;
+  }
+
+  /** Tall chamber: a climb up rock ledges with bats circling the shaft. */
+  caveShaftChunk(tileX, difficulty) {
+    const width = this.int(12, 15);
+    const roof = 2; // the roof lifts, so there is room to climb
+    this.addGround(tileX, width);
+    this.addCeiling(tileX, width, roof);
+
+    let py = 15;
+    for (let i = 0; i < 4 && py > 5; i++) {
+      const px = tileX + 2 + i * 3;
+      const slab = this.int(2, 3);
+      this.addPlatform(px, py, slab);
+      this.addCoin((px + slab / 2) * TILE - 4, py * TILE - 12);
+      py -= this.int(2, 3);
+    }
+    this.addPowerup((tileX + width - 4) * TILE, 6 * TILE, ['rapid', 'spread', 'magnet', 'shield'][this.int(0, 3)]);
+    const bats = 1 + Math.round(difficulty);
+    for (let i = 0; i < bats; i++) {
+      this.addBat((tileX + 4 + i * 4) * TILE, (4 + i * 3) * TILE);
+    }
+    this.addSpider((tileX + width - 3) * TILE, roof * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
+    return width;
   }
 
   /** Wide hall: room to fight, a slug on the floor and a bat overhead. */
@@ -592,16 +646,21 @@ export class Level {
   /** Spawn a mini boss just off the right edge of the screen. */
   addBoss(px, hp) {
     const moon = this.theme === 'moon';
+    const cave = this.theme === 'cave';
     // Late moon bosses grow into the bigger alien machine.
     const big = moon && hp >= 18;
     const boss = {
       type: 'boss',
       variant: this.theme,
       big,
+      // The cave boulder rolls along the floor instead of hovering.
+      grounded: cave,
+      charge: 0,
+      slamTimer: 3,
       x: px,
-      y: big ? GROUND_Y - 40 : GROUND_Y - 20,
+      y: cave ? GROUND_Y - 16 : big ? GROUND_Y - 40 : GROUND_Y - 20,
       w: big ? 48 : 20,
-      h: big ? 40 : 14,
+      h: cave ? 16 : big ? 40 : 14,
       scale: big ? 2 : 1,
       hp,
       maxHp: hp,

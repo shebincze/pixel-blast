@@ -4,7 +4,7 @@
   "private": true,
   "description": "Pixel Blast - pixelova skakacka (web + Android)",
   "scripts": {
-    "serve": "python3 -m http.server 5173",
+    "serve": "node scripts/serve.mjs",
     "build": "node scripts/stamp.mjs && node scripts/build.mjs",
     "sync": "npm run build && npx cap sync android",
     "android": "npm run sync && npx cap open android",
