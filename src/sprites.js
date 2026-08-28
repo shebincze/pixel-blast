@@ -31,6 +31,12 @@ const PALETTE = {
   G: '#2f8a48', // alien shell shade
   d: '#3a3a48', // dark armour
   D: '#22222c', // dark armour shade
+  u: '#63e0d8', // cave crystal
+  U: '#2c7f88', // cave crystal shade
+  L: '#ff7a2a', // lava
+  l: '#c03a10', // lava shade
+  f: '#6b4a8a', // bat fur
+  F: '#42305a', // bat fur shade
 };
 
 const PLAYER_IDLE = [
@@ -668,7 +674,230 @@ function pair(rows) {
   return { right, left: mirror(right), w: right.width, h: right.height };
 }
 
+// Level three lives underground: bats that dive, ceiling spiders and lava slugs,
+// plus the rock golems that guard the cave.
+
+const BAT_A = [
+  'ff........ff',
+  '.fFf....fFf.',
+  '..fFffffFf..',
+  '...fvvvvf...',
+  '...fFvvFf...',
+  '....ffff....',
+  '.....ff.....',
+  '............',
+];
+
+const BAT_B = [
+  '............',
+  '..ff....ff..',
+  '..fFf..fFf..',
+  '...fvvvvf...',
+  '..fFfvvfFf..',
+  '.ff.ffff.ff.',
+  'ff...ff...ff',
+  '............',
+];
+
+const SPIDER_A = [
+  '..d....d..',
+  '.d.d..d.d.',
+  '..dddddd..',
+  '.ddvddvdd.',
+  '.dDddddDd.',
+  '..dddddd..',
+  '.d.d..d.d.',
+  'd..d..d..d',
+];
+
+const SPIDER_B = [
+  '.d......d.',
+  '..d.dd.d..',
+  '..dddddd..',
+  '.ddvddvdd.',
+  '.dDddddDd.',
+  '..dddddd..',
+  '..d.dd.d..',
+  '.d......d.',
+];
+
+const SLUG_A = [
+  '............',
+  '....LLLL....',
+  '..LLllllLL..',
+  '.LLlvllvlLL.',
+  '.LllllllllL.',
+  '.LLllllllLL.',
+  '..LLLLLLLL..',
+  '............',
+];
+
+const SLUG_B = [
+  '............',
+  '............',
+  '...LLLLLL...',
+  '..LLllllLL..',
+  '.LLlvllvlLL.',
+  '.LllllllllL.',
+  '.LLLLLLLLLL.',
+  '............',
+];
+
+const SLUG_SMALL_A = [
+  '........',
+  '..LLLL..',
+  '.LlvvlL.',
+  '.LllllL.',
+  '..LLLL..',
+  '........',
+];
+
+const SLUG_SMALL_B = [
+  '........',
+  '........',
+  '..LLLL..',
+  '.LlvvlL.',
+  '.LLllLL.',
+  '..LLLL..',
+];
+
+const CRYSTAL = [
+  '...uu...',
+  '..uuUu..',
+  '..uUuu..',
+  '.uuUuuU.',
+  '.uUuuUu.',
+  '.uuUuuU.',
+  '..uUuu..',
+  '.UUuuUU.',
+];
+
+const STALACTITE = [
+  'nnnnnnnn',
+  'nkddddn.',
+  'nkkdddn.',
+  '.nkkddn.',
+  '.nkkkkn.',
+  '..nkkn..',
+  '..nkkn..',
+  '...nn...',
+];
+
+const LAVA_A = [
+  'LlLLlLLl',
+  'LLlLLlLL',
+  'lLLllLLl',
+  'llllllll',
+  'llLllLll',
+  'llllllll',
+];
+
+const LAVA_B = [
+  'lLLlLlLL',
+  'LlLLlLLl',
+  'LLllLllL',
+  'llllllll',
+  'lLllLlll',
+  'llllllll',
+];
+
+const CAVE_BOSS_A = [
+  '......kkkkkkkk......',
+  '....kkddddddddkk....',
+  '...kddddddddddddk...',
+  '...kddduuuuuudddk...',
+  '...kdduuvvvvuuddk...',
+  '...kddduuuuuudddk...',
+  '...kddddddddddddk...',
+  '..kkddddddddddddkk..',
+  '..kkddddddddddddkk..',
+  '...kkddddddddddkk...',
+  '....kkddddddddkk....',
+  '.....kkddddddkk.....',
+  '.....kkkk..kkkk.....',
+  '.....uu......uu.....',
+];
+
+const CAVE_BOSS_B = [
+  '......kkkkkkkk......',
+  '....kkddddddddkk....',
+  '...kddddddddddddk...',
+  '...kdddUUUUUUdddk...',
+  '...kddUUvvvvUUddk...',
+  '...kdddUUUUUUdddk...',
+  '...kddddddddddddk...',
+  '..kkddddddddddddkk..',
+  '..kkddddddddddddkk..',
+  '...kkddddddddddkk...',
+  '....kkddddddddkk....',
+  '.....kkddddddkk.....',
+  '.....kkkk..kkkk.....',
+  '.....Uu......uU.....',
+];
+
+const CAVE_FINAL_A = [
+  '............uuuu............',
+  '..........kkuuuukk..........',
+  '........kkddddddddkk........',
+  '.......kddddddddddddk.......',
+  '.......kddduuuuuudddk.......',
+  '.......kdduuvvvvuuddk.......',
+  '.......kdduuvvvvuuddk.......',
+  '.......kddduuuuuudddk.......',
+  '.......kddddddddddddk.......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......uukkddddddddkkuu......',
+  '......uuukkddddddkkuuu......',
+  '......kkkkddddddddkkkk......',
+  '......kkkk..kkkk..kkkk......',
+  '.......uu..uu..uu..uu.......',
+  '............................',
+];
+
+const CAVE_FINAL_B = [
+  '............UUUU............',
+  '..........kkUUUUkk..........',
+  '........kkddddddddkk........',
+  '.......kddddddddddddk.......',
+  '.......kdddUUUUUUdddk.......',
+  '.......kddUUvvvvUUddk.......',
+  '.......kddUUvvvvUUddk.......',
+  '.......kdddUUUUUUdddk.......',
+  '.......kddddddddddddk.......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......kkddddddddddddkk......',
+  '......UUkkddddddddkkUU......',
+  '......UUUkkddddddkkUUU......',
+  '......kkkkddddddddkkkk......',
+  '......kkkk..kkkk..kkkk......',
+  '.......UU..UU..UU..UU.......',
+  '............................',
+];
+
 export const sprites = {
+  batA: pair(BAT_A),
+  batB: pair(BAT_B),
+  spiderA: pair(SPIDER_A),
+  spiderB: pair(SPIDER_B),
+  slugA: pair(SLUG_A),
+  slugB: pair(SLUG_B),
+  slugSmallA: pair(SLUG_SMALL_A),
+  slugSmallB: pair(SLUG_SMALL_B),
+  crystal: pair(CRYSTAL),
+  stalactite: pair(STALACTITE),
+  lavaA: pair(LAVA_A),
+  lavaB: pair(LAVA_B),
+  caveBossA: pair(CAVE_BOSS_A),
+  caveBossB: pair(CAVE_BOSS_B),
+  caveFinalA: pair(CAVE_FINAL_A),
+  caveFinalB: pair(CAVE_FINAL_B),
   playerIdle: pair(PLAYER_IDLE),
   playerRunA: pair(PLAYER_RUN_A),
   playerRunB: pair(PLAYER_RUN_B),

@@ -123,12 +123,45 @@ Druhý level pokračuje s nasbíraným skóre, životy i bonusy:
 - Nepřáteli jsou mimozemské potvory místo pozemských robotů — jinak vypadají a mají
   dvojnásobek životů (chodec 4 zásahy, létající 2).
 
-## Konec hry — robot a ultra boss
+## Robot a ultra boss
 
 Na **4000 bodech** na Měsíci se hra na chvíli zastaví: přistane robot, pochválí
 hráče („DOHRAL JSI HRU! SUPER!“), rozesměje se („HA HA HA HA!“) a odletí — a nechá
 po sobě **ultra bosse**: obrovský černočervený stroj se 40 životy, trojnásobným
 měřítkem spritu, rychlejšími salvami a nepřetržitým vysíláním potvor.
+
+## Cutscéna — pád pod zem
+
+Po jeho poražení se pod postavou zhroutí měsíční půda. Následuje šachta: kamenné
+stěny s krystaly ubíhají vzhůru, kolem letí štěrk, počítadlo hloubky roste
+z 40 na 900 metrů. Scéna trvá zhruba osm sekund a dá se přeskočit Enterem.
+
+## Level 3 — Jeskyně
+
+Třetí level je podzemní a hraje se jinak než oba předchozí:
+
+- **Strop nad každým úsekem.** Chodby se střídají: haly, kde je místo na skákání,
+  a nízké průlezy, kde se skákat prostě nedá.
+- **Láva na podlaze** — kaluž, která bere život při doteku, přeskakuje se.
+- **Stalaktity** visí ze stropu, zachrastí, když pod nimi projdeš, a po chvilce
+  spadnou. Kdo nezrychlí, dostane kamenem.
+- **Krystalové pilíře** místo beden — dají se použít jako kryt proti střelám.
+
+Noví nepřátelé mají vlastní design i chování:
+
+| Potvora | Životy | Mechanika |
+| --- | --- | --- |
+| netopýr | 2 | vznáší se pod stropem, na blízko se střemhlav vrhne dolů a zase vystoupá |
+| pavouk | 3 | visí na vlákně u stropu, spadne přesně když pod ním projdeš, pak leze po zemi |
+| lávový slimák | 3 | pomalý a odolný, po zabití se **rozdělí na dva malé** (1 život, ale rychlejší) |
+
+Mini bossové po 500 bodech mají v jeskyni **trojnásobek životů** a podobu kamenného
+balvanu s krystalovým jádrem.
+
+## Konec hry — kamenný golem
+
+Na **6000 bodech** se objeví finální **kamenný golem**: 34 životů, dvojnásobné
+měřítko spritu, dvě fáze a stejné salvy jako ostatní hlavní bossové.
 
 Po jeho poražení se objeví závěrečná obrazovka **„POKRACOVANI PRISTE“** se souhrnem
 běhu; skóre se zapíše do leaderboardu.

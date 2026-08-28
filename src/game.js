@@ -57,6 +57,8 @@ const FINAL_BOSS_SCORE = 2000; // level one ends with this fight
 const MOON_GRAVITY_SCALE = 0.45;
 const SHIP_SCALE = 2; // the rocket is drawn at double size
 const LEVEL2_END_SCORE = 4000; // the robot shows up once the moon run gets this far
+const LEVEL3_END_SCORE = 6000; // the cave ends with the rock golem
+const FALL_TIME = 6; // seconds of falling through the rock between level 2 and 3
 const SPACE_TRAVEL_TIME = 7; // seconds of Earth-to-Moon flight
 const ROOM_SCALE = 2; // the bedroom intro is a close-up, drawn at double size
 const ROOM_FLOOR_Y = 140;
@@ -118,6 +120,7 @@ export class Game {
   newRun() {
     this.levelIndex = 1;
     this.finalBossDone = false;
+    this.caveBossDone = false;
     this.cutscene = null;
     this.intro = null;
     this.levelBanner = 0;
@@ -223,7 +226,7 @@ export class Game {
     if (this.input.wasPressed('pause')) return this.pauseRun();
 
     this.level.ensureAhead(this.cameraX);
-    this.level.update(this.time, dt);
+    this.level.update(this.time, dt, this.player);
     this.player.update(dt, this.input, this.level);
     if (this.player.jumped) {
       if (this.player.jumped === 1) this.sound.jump();
@@ -265,7 +268,7 @@ export class Game {
 
   /** Music runs during play only, and switches scale between the two levels. */
   syncMusic() {
-    const wanted = this.state === 'play' ? (this.level.theme === 'moon' ? 'moon' : 'earth') : null;
+    const wanted = this.state === 'play' ? this.level.theme : null;
     if (wanted === this.musicTheme) return;
     this.musicTheme = wanted;
     if (wanted) this.sound.startMusic(wanted);
@@ -284,11 +287,21 @@ export class Game {
       return;
     }
 
+    // The cave ends with its own final fight: a rock golem.
+    if (this.levelIndex === 3 && !this.caveBossDone && this.score >= LEVEL3_END_SCORE) {
+      this.boss = this.level.addFinalBoss(this.cameraX + VIEW_W + 20, 34, 'cave');
+      this.boss.isCave = true;
+      this.bossBanner = 3;
+      this.sound.bossAppear();
+      return;
+    }
+
     if (this.score < this.nextBossScore) return;
     if (this.levelIndex === 1 && this.score >= FINAL_BOSS_SCORE) return;
     // On the moon the robot scene takes over once the run reaches its end score.
     if (this.levelIndex === 2 && !this.ultraStarted && this.score >= LEVEL2_END_SCORE) return;
-    const hp = (6 + this.bossesBeaten * 3) * (this.levelIndex === 2 ? 2 : 1);
+    if (this.levelIndex === 3 && this.score >= LEVEL3_END_SCORE) return;
+    const hp = (6 + this.bossesBeaten * 3) * (this.levelIndex === 2 ? 2 : this.levelIndex === 3 ? 3 : 1);
     this.boss = this.level.addBoss(this.cameraX + VIEW_W + 16, hp);
     this.bossBanner = 2;
     this.sound.bossAppear();
@@ -479,6 +492,22 @@ export class Game {
       for (let i = 0; i < 40; i++) {
         this.spawnSparks(boss.x + boss.w / 2, boss.y + boss.h / 2, i % 2 ? '#ff8a4a' : '#7ef2ff', 6);
       }
+      this.startFallScene();
+      return;
+    }
+
+    // The golem is the last fight of the cave, and of the game so far.
+    if (boss.isCave) {
+      this.caveBossDone = true;
+      this.shake = 3;
+      this.sound.explosion();
+      this.sound.victory();
+      this.bossBullets.length = 0;
+      this.level.enemies.length = 0;
+      this.bonusScore += 2000;
+      for (let i = 0; i < 40; i++) {
+        this.spawnSparks(boss.x + boss.w / 2, boss.y + boss.h / 2, i % 2 ? '#63e0d8' : '#ff7a2a', 6);
+      }
       this.submitScore();
       if (this.score > this.best) {
         this.best = this.score;
@@ -617,6 +646,12 @@ export class Game {
           this.kills++;
           this.sound.kill();
           this.spawnSparks(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, '#ff8a4a', 10);
+          // A big lava slug bursts into two small ones instead of just dying.
+          if (enemy.type === 'slug' && !enemy.small) {
+            this.level.addSlug(enemy.x - 6, enemy.minX, enemy.maxX, true);
+            this.level.addSlug(enemy.x + 6, enemy.minX, enemy.maxX, true);
+            this.spawnSparks(enemy.x + enemy.w / 2, enemy.y + 4, '#ff7a2a', 8);
+          }
         }
         break;
       }
@@ -1213,7 +1248,9 @@ export class Game {
     // Ignore taps for the first moment, so a stray tap right after the fight
     // does not skip the whole ending.
     if (scene.elapsed > 1.5 && (this.input.wasPressed('start') || this.input.wasPressed('restart'))) {
-      return scene.kind === 'robot' ? this.startUltraFight() : this.startLevel2();
+      if (scene.kind === 'robot') return this.startUltraFight();
+      if (scene.kind === 'fall') return this.startLevel3();
+      return this.startLevel2();
     }
 
     scene.timer += dt;
@@ -1223,6 +1260,11 @@ export class Game {
 
     if (scene.kind === 'robot') {
       this.updateRobotScene(dt);
+      return undefined;
+    }
+
+    if (scene.kind === 'fall') {
+      this.updateFallScene(dt);
       return undefined;
     }
 
@@ -1305,6 +1347,97 @@ export class Game {
     return undefined;
   }
 
+  /** The floor gives way under the winner and drops him into the cave. */
+  startFallScene() {
+    this.state = 'cutscene';
+    this.player.invuln = 0;
+    this.player.vx = 0;
+    this.bullets.length = 0;
+    this.bossBullets.length = 0;
+    this.level.enemies.length = 0;
+    this.particles.length = 0;
+    this.cutscene = {
+      kind: 'fall',
+      phase: 0,
+      timer: 0,
+      elapsed: 0,
+      dialog: '',
+      fade: 0,
+      space: false,
+      deep: false,
+      depth: 0,
+      drop: 0,
+    };
+  }
+
+  updateFallScene(dt) {
+    const scene = this.cutscene;
+
+    switch (scene.phase) {
+      case 0: { // the ground cracks
+        this.shake = 1.2;
+        scene.dialog = 'zem se pode mnou hrouti!';
+        if (Math.floor(scene.timer * 20) % 2 === 0) {
+          this.spawnSparks(this.player.x + 5, GROUND_Y, '#5a3a2a', 3);
+        }
+        if (scene.timer > 2) {
+          scene.phase = 1;
+          scene.timer = 0;
+          this.sound.explosion();
+        }
+        break;
+      }
+      case 1: { // he drops out of the level
+        scene.drop += 240 * dt;
+        this.player.y = GROUND_Y - 14 + scene.drop;
+        this.shake = 0.6;
+        if (scene.drop > 60) {
+          scene.phase = 2;
+          scene.timer = 0;
+          scene.deep = true; // the shaft takes over the screen
+          this.particles.length = 0;
+          this.sound.rocket();
+        }
+        break;
+      }
+      case 2: { // the long shaft down
+        scene.depth = Math.min(1, scene.timer / FALL_TIME);
+        if (scene.depth >= 1) {
+          scene.phase = 3;
+          scene.timer = 0;
+          this.shake = 2;
+          this.sound.hit();
+        }
+        break;
+      }
+      default: { // landing flash into the cave
+        scene.fade = Math.min(1, scene.timer / 1.2);
+        if (scene.fade >= 1) this.startLevel3();
+      }
+    }
+  }
+
+  /** Third level: the cave — bats, spiders, lava and a low ceiling. */
+  startLevel3() {
+    this.levelIndex = 3;
+    this.level = new Level(undefined, 'cave');
+    this.cutscene = null;
+    this.state = 'play';
+
+    this.distanceBase = this.distance;
+    this.player.reset(24, GROUND_Y - 14);
+    this.player.gravityScale = 1;
+    this.cameraX = 0;
+    this.maxX = this.player.x;
+    this.boss = null;
+    this.ultraStarted = true;
+    this.bullets.length = 0;
+    this.bossBullets.length = 0;
+    this.particles.length = 0;
+    this.nextBossScore = (Math.floor(this.score / BOSS_INTERVAL) + 1) * BOSS_INTERVAL;
+    this.levelBanner = 3.5;
+  }
+
   /** Second level: the Moon — low gravity, grey dust, Earth in the sky. */
   startLevel2() {
     this.levelIndex = 2;
@@ -1358,6 +1491,7 @@ export class Game {
   checkHazards() {
     const box = this.player.hitbox;
     for (const hazard of this.level.hazards) {
+      if (hazard.gone) continue;
       if (overlaps(box, hazard)) return this.loseLife();
     }
     for (const enemy of this.level.enemies) {
@@ -1435,6 +1569,11 @@ export class Game {
       return;
     }
 
+    if (this.state === 'cutscene' && this.cutscene && this.cutscene.deep) {
+      this.drawFall();
+      return;
+    }
+
     const shakeX = this.shake > 0 ? Math.round(Math.sin(this.time * 60) * this.shake * 2) : 0;
     const shakeY = this.shake > 0 ? Math.round(Math.cos(this.time * 70) * this.shake * 2) : 0;
 
@@ -1463,6 +1602,7 @@ export class Game {
 
   drawBackground() {
     if (this.level.theme === 'moon') return this.drawMoonBackground();
+    if (this.level.theme === 'cave') return this.drawCaveBackground();
     const ctx = this.ctx;
     const sky = ctx.createLinearGradient(0, 0, 0, VIEW_H);
     sky.addColorStop(0, '#1b2a4a');
@@ -1530,6 +1670,45 @@ export class Game {
     }
   }
 
+  /** Underground: layered rock, glowing crystal veins and a lava glow below. */
+  drawCaveBackground() {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#120b16';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    // Far rock wall with a rough block pattern.
+    const farOffset = -(this.cameraX * 0.15) % 48;
+    ctx.fillStyle = '#1c1422';
+    for (let i = -1; i < VIEW_W / 48 + 2; i++) {
+      const x = farOffset + i * 48;
+      ctx.fillRect(Math.round(x), 30, 44, 110);
+      ctx.fillStyle = i % 2 ? '#221928' : '#1c1422';
+    }
+
+    // Crystal veins glimmer deeper in.
+    const veinOffset = -(this.cameraX * 0.3) % 96;
+    for (let i = -1; i < VIEW_W / 96 + 2; i++) {
+      const x = Math.round(veinOffset + i * 96 + 20);
+      const glow = 0.25 + Math.sin(this.time * 2 + i) * 0.12;
+      ctx.globalAlpha = glow;
+      ctx.fillStyle = '#63e0d8';
+      ctx.fillRect(x, 62, 3, 16);
+      ctx.fillRect(x + 8, 74, 3, 11);
+      ctx.globalAlpha = 1;
+    }
+
+    // Near rock ridges and the warm glow of lava under the floor.
+    const nearOffset = -(this.cameraX * 0.55) % 120;
+    for (let i = -1; i < 5; i++) {
+      this.drawHill(nearOffset + i * 120, 140, 74, 26, '#2a1f30');
+    }
+    const glowGradient = ctx.createLinearGradient(0, GROUND_Y - 14, 0, GROUND_Y);
+    glowGradient.addColorStop(0, 'rgba(255, 122, 42, 0)');
+    glowGradient.addColorStop(1, 'rgba(255, 122, 42, 0.18)');
+    ctx.fillStyle = glowGradient;
+    ctx.fillRect(0, GROUND_Y - 14, VIEW_W, 14);
+  }
+
   drawHill(x, baseY, width, height, color) {
     const ctx = this.ctx;
     ctx.fillStyle = color;
@@ -1563,15 +1742,40 @@ export class Game {
         continue;
       }
 
+      if (solid.crystal) {
+        drawSprite(ctx, sprites.crystal, sx, solid.y);
+        continue;
+      }
+
       const moon = this.level.theme === 'moon';
-      ctx.fillStyle = solid.ground ? (moon ? '#4b4b58' : '#5a3a2a') : (moon ? '#5c5c6e' : '#4a4a66');
+      const cave = this.level.theme === 'cave';
+
+      // The cave roof is lit along its underside, not its top.
+      if (solid.ceiling) {
+        ctx.fillStyle = '#241a26';
+        ctx.fillRect(Math.round(sx), solid.y, solid.w, solid.h);
+        ctx.fillStyle = '#3d2c42';
+        ctx.fillRect(Math.round(sx), solid.y + solid.h - 3, solid.w, 3);
+        for (let x = 0; x < solid.w; x += TILE) {
+          const worldX = solid.x + x;
+          const bump = (worldX / TILE) % 3;
+          ctx.fillRect(Math.round(sx + x + bump), solid.y + solid.h, 2, 1 + bump);
+        }
+        continue;
+      }
+
+      ctx.fillStyle = solid.ground
+        ? (cave ? '#2e2130' : moon ? '#4b4b58' : '#5a3a2a')
+        : (cave ? '#33253a' : moon ? '#5c5c6e' : '#4a4a66');
       ctx.fillRect(Math.round(sx), solid.y, solid.w, solid.h);
-      ctx.fillStyle = solid.ground ? (moon ? '#9d9db2' : '#4cc26a') : (moon ? '#8a8aa0' : '#6d6d95');
+      ctx.fillStyle = solid.ground
+        ? (cave ? '#5d4767' : moon ? '#9d9db2' : '#4cc26a')
+        : (cave ? '#6b5277' : moon ? '#8a8aa0' : '#6d6d95');
       ctx.fillRect(Math.round(sx), solid.y, solid.w, 3);
 
       // Dirt speckles give the ground some texture without a tileset.
       if (solid.ground) {
-        ctx.fillStyle = moon ? '#3c3c48' : '#4a2e20';
+        ctx.fillStyle = cave ? '#1e1522' : moon ? '#3c3c48' : '#4a2e20';
         for (let x = 0; x < solid.w; x += TILE) {
           const worldX = solid.x + x;
           ctx.fillRect(Math.round(sx + x + (worldX / TILE) % 3 + 1), solid.y + 7, 2, 2);
@@ -1581,8 +1785,25 @@ export class Game {
     }
 
     for (const hazard of level.hazards) {
+      if (hazard.gone) continue;
       const sx = hazard.x - camera;
       if (sx > VIEW_W || sx + hazard.w < 0) continue;
+
+      if (hazard.kind === 'lava') {
+        const frame = Math.floor(this.time * 5 + hazard.x * 0.05) % 2 === 0
+          ? sprites.lavaA
+          : sprites.lavaB;
+        drawSprite(ctx, frame, sx, hazard.y);
+        continue;
+      }
+
+      if (hazard.kind === 'stalactite') {
+        // It rattles before it lets go, so the drop is fair.
+        const shiver = hazard.state === 'shake' ? Math.sin(this.time * 40) * 1 : 0;
+        drawSprite(ctx, sprites.stalactite, sx + shiver, hazard.y);
+        continue;
+      }
+
       drawSprite(ctx, sprites.spike, sx, hazard.y);
     }
 
@@ -1624,7 +1845,21 @@ export class Game {
       if (sx > VIEW_W || sx + enemy.w < 0) continue;
 
       let frame;
-      if (enemy.type === 'flyer') {
+      if (enemy.type === 'bat') {
+        frame = Math.floor(this.time * 10) % 2 === 0 ? sprites.batA : sprites.batB;
+      } else if (enemy.type === 'spider') {
+        // The thread it hangs on, drawn back up to the roof.
+        if (enemy.state !== 'crawl') {
+          ctx.fillStyle = '#6b6b80';
+          ctx.fillRect(Math.round(sx + enemy.w / 2), enemy.anchorY - 8, 1, enemy.y - enemy.anchorY + 8);
+        }
+        frame = Math.floor(this.time * 8) % 2 === 0 ? sprites.spiderA : sprites.spiderB;
+      } else if (enemy.type === 'slug') {
+        const even = Math.floor(this.time * 4 + enemy.anim) % 2 === 0;
+        frame = enemy.small
+          ? (even ? sprites.slugSmallA : sprites.slugSmallB)
+          : (even ? sprites.slugA : sprites.slugB);
+      } else if (enemy.type === 'flyer') {
         const even = Math.floor(this.time * 8) % 2 === 0;
         frame = enemy.variant === 'moon'
           ? (even ? sprites.moonFlyerA : sprites.moonFlyerB)
@@ -1633,7 +1868,12 @@ export class Game {
         if (enemy.isUltra) {
           frame = Math.floor(this.time * 6) % 2 === 0 ? sprites.ultraBossA : sprites.ultraBossB;
         } else if (enemy.isFinal) {
-          frame = Math.floor(this.time * 5) % 2 === 0 ? sprites.finalBossA : sprites.finalBossB;
+          const even = Math.floor(this.time * 5) % 2 === 0;
+          frame = enemy.variant === 'cave'
+            ? (even ? sprites.caveFinalA : sprites.caveFinalB)
+            : (even ? sprites.finalBossA : sprites.finalBossB);
+        } else if (enemy.variant === 'cave') {
+          frame = Math.floor(this.time * 6) % 2 === 0 ? sprites.caveBossA : sprites.caveBossB;
         } else if (enemy.variant === 'moon') {
           const even = Math.floor(this.time * 6) % 2 === 0;
           frame = enemy.big
@@ -1714,6 +1954,60 @@ export class Game {
   }
 
   /** The flight itself: Earth shrinking away, the Moon growing closer. */
+  /** The shaft between level two and three: rock rushing past, upward. */
+  drawFall() {
+    const ctx = this.ctx;
+    const scene = this.cutscene;
+    const mid = VIEW_W / 2;
+
+    ctx.fillStyle = '#0a0710';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    // Rock walls on both sides, their blocks scrolling up past the player.
+    const speed = 320;
+    const offset = mod(scene.timer * speed, 24);
+    const wall = 46;
+    for (let side = 0; side < 2; side++) {
+      const left = side === 0 ? 0 : VIEW_W - wall;
+      ctx.fillStyle = '#241a26';
+      ctx.fillRect(left, 0, wall, VIEW_H);
+      for (let y = -24; y < VIEW_H + 24; y += 24) {
+        const py = Math.round(y + offset);
+        ctx.fillStyle = side === 0 ? '#3a2b3c' : '#332535';
+        ctx.fillRect(left + (side === 0 ? 10 : 6), py, 30, 12);
+        ctx.fillStyle = '#4a3550';
+        ctx.fillRect(left + (side === 0 ? 24 : 12), py + 14, 14, 6);
+        // A crystal glints in the wall every other block.
+        if ((Math.floor(y / 24) + side) % 2 === 0) {
+          drawSprite(ctx, sprites.crystal, left + (side === 0 ? 14 : 22), py + 2);
+        }
+      }
+    }
+
+    // Dust and gravel streaking upward sells the speed.
+    for (let i = 0; i < 26; i++) {
+      const x = wall + 6 + ((i * 37) % (VIEW_W - wall * 2 - 12));
+      const y = mod(i * 23 - scene.timer * (420 + (i % 5) * 60), VIEW_H + 20) - 10;
+      ctx.fillStyle = i % 3 === 0 ? '#6b4a3a' : '#42303c';
+      ctx.fillRect(Math.round(x), Math.round(y), 2, 5 + (i % 3) * 3);
+    }
+
+    // The player tumbles down the middle.
+    const wobble = Math.sin(scene.timer * 6) * 6;
+    drawSprite(ctx, sprites.playerFall, Math.round(mid - 5 + wobble), 64, wobble < 0);
+
+    const depth = Math.round(40 + scene.depth * 860);
+    drawText(ctx, `hloubka ${depth} m`, mid, 14, { color: '#8a8aa0', align: 'center' });
+    drawText(ctx, 'padas do jeskyne...', mid, VIEW_H - 30, { color: '#63e0d8', align: 'center' });
+
+    if (scene.fade > 0) {
+      ctx.fillStyle = `rgba(0, 0, 0, ${scene.fade})`;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+
+    drawText(ctx, 'enter = preskocit', mid, VIEW_H - 12, { color: '#6a6a80', align: 'center' });
+  }
+
   drawSpace() {
     const ctx = this.ctx;
     const scene = this.cutscene;
@@ -1813,8 +2107,12 @@ export class Game {
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, 24.5, boxWidth - 1, 29);
 
-      const speaker = scene.kind === 'robot' ? 'ROBOT' : 'KOSMONAUT';
-      const speakerColor = scene.kind === 'robot' ? '#ff6b6b' : '#9ad8ff';
+      const speaker = scene.kind === 'robot'
+        ? 'ROBOT'
+        : scene.kind === 'fall' ? this.playerName : 'KOSMONAUT';
+      const speakerColor = scene.kind === 'robot'
+        ? '#ff6b6b'
+        : scene.kind === 'fall' ? '#63e0d8' : '#9ad8ff';
       drawText(ctx, speaker, VIEW_W / 2, 30, { color: speakerColor, align: 'center' });
       drawText(ctx, scene.dialog, VIEW_W / 2, 42, { color: '#ffffff', align: 'center' });
     }
@@ -1900,8 +2198,13 @@ export class Game {
     }
 
     if (this.levelBanner > 0) {
-      drawText(ctx, 'LEVEL 2', VIEW_W / 2, 50, { color: '#9ad8ff', align: 'center', scale: 2 });
-      drawText(ctx, 'MESIC - nizka gravitace', VIEW_W / 2, 70, { color: '#9ad8ff', align: 'center' });
+      const cave = this.levelIndex === 3;
+      const color = cave ? '#63e0d8' : '#9ad8ff';
+      drawText(ctx, cave ? 'LEVEL 3' : 'LEVEL 2', VIEW_W / 2, 50, { color, align: 'center', scale: 2 });
+      drawText(ctx, cave ? 'JESKYNE - pozor na strop' : 'MESIC - nizka gravitace', VIEW_W / 2, 70, {
+        color,
+        align: 'center',
+      });
     }
 
     if (this.powerBanner > 0) {
@@ -1981,7 +2284,7 @@ export class Game {
     }
     ctx.globalAlpha = 1;
 
-    drawText(ctx, 'ULTRA BOSS', mid, 24, { color: '#ff6b6b', align: 'center', scale: 2 });
+    drawText(ctx, 'KAMENNY GOLEM', mid, 24, { color: '#63e0d8', align: 'center', scale: 2 });
     drawText(ctx, 'porazen!', mid, 44, { color: '#ffe14a', align: 'center', scale: 2 });
 
     drawText(ctx, `${this.playerName}: ${this.score} bodu`, mid, 78, { align: 'center' });

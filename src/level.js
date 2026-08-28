@@ -44,6 +44,7 @@ export class Level {
 
     // Safe runway before the first hazard.
     this.addGround(0, 30);
+    if (theme === 'cave') this.addCeiling(0, 30, 4); // the cave has a roof from the first step
     this.nextX = 30 * TILE;
     this.checkpoints.push({ x: 3 * TILE, y: GROUND_Y - 20 });
   }
@@ -56,6 +57,47 @@ export class Level {
       h: VIEW_H - GROUND_Y + TILE,
       ground: true,
     });
+  }
+
+  /** Cave roof. Its underside is what the player bumps into. */
+  addCeiling(tileX, tileW, tileH) {
+    this.solids.push({
+      x: tileX * TILE,
+      y: 0,
+      w: tileW * TILE,
+      h: tileH * TILE,
+      ceiling: true,
+    });
+  }
+
+  /** Rock spike hanging from the roof; it lets go when the player walks under. */
+  addStalactite(tileX, ceilingH) {
+    this.hazards.push({
+      kind: 'stalactite',
+      x: tileX * TILE,
+      y: ceilingH * TILE,
+      w: TILE,
+      h: TILE,
+      state: 'hang',
+      vy: 0,
+    });
+  }
+
+  /** Lava pool sitting on the cave floor. */
+  addLava(tileX, count) {
+    for (let i = 0; i < count; i++) {
+      this.hazards.push({
+        kind: 'lava',
+        x: (tileX + i) * TILE,
+        y: GROUND_Y - 6,
+        w: TILE,
+        h: 6,
+      });
+    }
+  }
+
+  addCrystal(tileX, tileY) {
+    this.solids.push({ x: tileX * TILE, y: tileY * TILE, w: TILE, h: TILE, crystal: true });
   }
 
   addPlatform(tileX, tileY, tileW) {
@@ -117,6 +159,48 @@ export class Level {
     });
   }
 
+  /** Cave bat: hangs in the air, then dives at the player and climbs back. */
+  addBat(px, py) {
+    this.enemies.push({
+      type: 'bat',
+      variant: 'cave',
+      x: px, y: py, w: 12, h: 8,
+      baseY: py, phase: this.random() * Math.PI * 2,
+      state: 'hover', vy: 0, cooldown: this.random(),
+      hp: 2,
+      dead: false, hitFlash: 0, facingLeft: true, anim: this.random(),
+    });
+  }
+
+  /** Ceiling spider: drops on its thread when the player walks underneath. */
+  addSpider(px, ceilingY, minX, maxX) {
+    this.enemies.push({
+      type: 'spider',
+      variant: 'cave',
+      x: px, y: ceilingY, w: 10, h: 8,
+      anchorY: ceilingY,
+      state: 'hang', vy: 0,
+      hp: 3,
+      dir: -1, speed: 26, minX, maxX,
+      dead: false, hitFlash: 0, facingLeft: true, anim: this.random(),
+    });
+  }
+
+  /** Lava slug: slow, tough, and it splits in two when it dies. */
+  addSlug(px, minX, maxX, small = false) {
+    this.enemies.push({
+      type: 'slug',
+      variant: 'cave',
+      small,
+      x: px, y: GROUND_Y - (small ? 6 : 8), w: small ? 8 : 12, h: small ? 6 : 8,
+      hp: small ? 1 : 3,
+      dead: false, hitFlash: 0,
+      dir: -1, speed: small ? 26 : 12,
+      minX, maxX, anim: this.random(),
+      facingLeft: true,
+    });
+  }
+
   /** Sprinkle a patrolling robot onto a stretch of solid ground. */
   maybeAddWalker(tileX, tileW, difficulty) {
     if (this.random() > 0.35 + difficulty * 0.4) return;
@@ -147,6 +231,14 @@ export class Level {
     const roll = this.random();
     let width;
 
+    if (this.theme === 'cave') {
+      width = this.generateCaveChunk(tileX, difficulty, roll);
+      this.checkpoints.push({ x: (tileX + 1) * TILE, y: GROUND_Y - 20 });
+      this.nextX = (tileX + width) * TILE;
+      this.chunkIndex++;
+      return;
+    }
+
     if (roll < 0.20) {
       width = this.flatChunk(tileX, difficulty);
     } else if (roll < 0.42) {
@@ -164,6 +256,103 @@ export class Level {
     this.checkpoints.push({ x: (tileX + 1) * TILE, y: GROUND_Y - 20 });
     this.nextX = (tileX + width) * TILE;
     this.chunkIndex++;
+  }
+
+  /** The cave has its own set of chunks: a roof over every one of them. */
+  generateCaveChunk(tileX, difficulty, roll) {
+    if (roll < 0.22) return this.caveHallChunk(tileX, difficulty);
+    if (roll < 0.42) return this.caveLavaChunk(tileX, difficulty);
+    if (roll < 0.60) return this.caveNarrowChunk(tileX, difficulty);
+    if (roll < 0.78) return this.caveCrystalChunk(tileX, difficulty);
+    return this.cavePitChunk(tileX, difficulty);
+  }
+
+  /** Wide hall: room to fight, a slug on the floor and a bat overhead. */
+  caveHallChunk(tileX, difficulty) {
+    const width = this.int(10, 14);
+    const roof = this.int(3, 5);
+    this.addGround(tileX, width);
+    this.addCeiling(tileX, width, roof);
+    this.addCoin((tileX + 3) * TILE, GROUND_Y - 3 * TILE);
+    this.addCoin((tileX + 5) * TILE, GROUND_Y - 3 * TILE);
+    this.addSlug((tileX + width / 2) * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
+    if (this.random() < 0.5 + difficulty * 0.3) {
+      this.addBat((tileX + width - 4) * TILE, (roof + 3) * TILE);
+    }
+    this.maybeAddPowerup(tileX, width);
+    return width;
+  }
+
+  /** Lava pool on the floor - jump it, or lose a life. */
+  caveLavaChunk(tileX, difficulty) {
+    const width = this.int(11, 14);
+    const roof = this.int(3, 4);
+    this.addGround(tileX, width);
+    this.addCeiling(tileX, width, roof);
+    const pool = this.int(2, 2 + Math.round(difficulty * 2));
+    const poolX = tileX + this.int(3, 5);
+    this.addLava(poolX, pool);
+    for (let i = 0; i < pool; i++) {
+      const t = (i + 0.5) / pool;
+      this.addCoin((poolX + i) * TILE, GROUND_Y - 4 * TILE - Math.sin(t * Math.PI) * 14);
+    }
+    if (this.random() < 0.5) this.addBat((poolX + pool + 1) * TILE, (roof + 4) * TILE);
+    return width;
+  }
+
+  /** Low passage: the roof is too low to jump, and it drips stalactites. */
+  caveNarrowChunk(tileX, difficulty) {
+    const width = this.int(10, 13);
+    const roof = 10; // bottom edge at 80px - walking room only
+    this.addGround(tileX, width);
+    this.addCeiling(tileX, width, roof);
+    const count = 2 + Math.round(difficulty * 2);
+    for (let i = 0; i < count; i++) {
+      this.addStalactite(tileX + 2 + i * 3, roof);
+    }
+    this.addCoin((tileX + width - 3) * TILE, GROUND_Y - 2 * TILE);
+    this.addSlug((tileX + 2) * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
+    return width;
+  }
+
+  /** Crystal pillars to hide behind, with spiders waiting on the roof. */
+  caveCrystalChunk(tileX, difficulty) {
+    const width = this.int(12, 15);
+    const roof = this.int(4, 6);
+    this.addGround(tileX, width);
+    this.addCeiling(tileX, width, roof);
+
+    const stackX = tileX + this.int(3, 5);
+    const height = this.int(1, 2 + Math.round(difficulty));
+    for (let i = 0; i < height; i++) this.addCrystal(stackX, GROUND_Y / TILE - (i + 1));
+    this.addCoin(stackX * TILE, GROUND_Y - (height + 2) * TILE);
+
+    const spiders = 1 + Math.round(difficulty);
+    for (let i = 0; i < spiders; i++) {
+      const px = (tileX + 6 + i * 4) * TILE;
+      this.addSpider(px, roof * TILE, (tileX + 1) * TILE, (tileX + width - 1) * TILE);
+    }
+    this.maybeAddPowerup(tileX, width, 4);
+    return width;
+  }
+
+  /** Chasm with a stalactite gauntlet over it. */
+  cavePitChunk(tileX, difficulty) {
+    const lead = 4;
+    const gap = this.int(2, 3 + Math.round(difficulty * 2));
+    const tail = 5;
+    const width = lead + gap + tail;
+    const roof = this.int(3, 4);
+    this.addGround(tileX, lead);
+    this.addGround(tileX + lead + gap, tail);
+    this.addCeiling(tileX, width, roof);
+    for (let i = 0; i < gap; i++) {
+      const t = (i + 0.5) / gap;
+      this.addCoin((tileX + lead + i) * TILE, GROUND_Y - 3 * TILE - Math.sin(t * Math.PI) * 18);
+    }
+    if (this.random() < 0.6) this.addStalactite(tileX + lead - 1, roof);
+    if (this.random() < 0.6) this.addStalactite(tileX + lead + gap + 1, roof);
+    return width;
   }
 
   flatChunk(tileX, difficulty) {
@@ -258,7 +447,9 @@ export class Level {
     return width;
   }
 
-  update(time, dt) {
+  update(time, dt, player) {
+    this.updateHazards(dt, player);
+
     for (const enemy of this.enemies) {
       if (enemy.dead) continue;
       enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
@@ -270,6 +461,16 @@ export class Level {
         continue;
       }
 
+      if (enemy.type === 'bat') {
+        this.updateBat(enemy, time, dt, player);
+        continue;
+      }
+
+      if (enemy.type === 'spider') {
+        this.updateSpider(enemy, dt, player);
+        continue;
+      }
+
       enemy.x += enemy.dir * enemy.speed * dt;
       if (enemy.x <= enemy.minX) { enemy.x = enemy.minX; enemy.dir = 1; }
       if (enemy.x + enemy.w >= enemy.maxX) { enemy.x = enemy.maxX - enemy.w; enemy.dir = -1; }
@@ -278,11 +479,97 @@ export class Level {
     }
   }
 
+  /** Bats hover until the player is close, then dive and climb back up. */
+  updateBat(bat, time, dt, player) {
+    bat.anim += dt;
+    bat.cooldown = Math.max(0, bat.cooldown - dt);
+
+    if (bat.state === 'hover') {
+      bat.y = bat.baseY + Math.sin(time * 2.4 + bat.phase) * 4;
+      if (player && bat.cooldown <= 0 && Math.abs(player.x - bat.x) < 56 && player.y > bat.y) {
+        bat.state = 'dive';
+        bat.vy = 40;
+        bat.diveX = Math.sign(player.x - bat.x) || -1;
+      }
+      return;
+    }
+
+    if (bat.state === 'dive') {
+      bat.vy += 420 * dt;
+      bat.y += bat.vy * dt;
+      bat.x += bat.diveX * 40 * dt;
+      bat.facingLeft = bat.diveX < 0;
+      if (bat.y > GROUND_Y - bat.h - 4) {
+        bat.y = GROUND_Y - bat.h - 4;
+        bat.state = 'climb';
+      }
+      return;
+    }
+
+    bat.y -= 70 * dt;
+    if (bat.y <= bat.baseY) {
+      bat.y = bat.baseY;
+      bat.state = 'hover';
+      bat.cooldown = 1.8;
+    }
+  }
+
+  /** Spiders wait on their thread and drop the moment the player is under them. */
+  updateSpider(spider, dt, player) {
+    spider.anim += dt;
+
+    if (spider.state === 'hang') {
+      if (player && Math.abs(player.x + 5 - (spider.x + spider.w / 2)) < 14) {
+        spider.state = 'drop';
+        spider.vy = 20;
+      }
+      return;
+    }
+
+    if (spider.state === 'drop') {
+      spider.vy += 500 * dt;
+      spider.y += spider.vy * dt;
+      if (spider.y + spider.h >= GROUND_Y) {
+        spider.y = GROUND_Y - spider.h;
+        spider.state = 'crawl';
+        spider.dir = player && player.x < spider.x ? -1 : 1;
+      }
+      return;
+    }
+
+    spider.x += spider.dir * spider.speed * dt;
+    if (spider.x <= spider.minX) { spider.x = spider.minX; spider.dir = 1; }
+    if (spider.x + spider.w >= spider.maxX) { spider.x = spider.maxX - spider.w; spider.dir = -1; }
+    spider.facingLeft = spider.dir < 0;
+  }
+
+  /** Stalactites let go once the player is beneath them, then shatter. */
+  updateHazards(dt, player) {
+    for (const hazard of this.hazards) {
+      if (hazard.kind !== 'stalactite' || hazard.gone) continue;
+
+      if (hazard.state === 'hang') {
+        if (player && Math.abs(player.x + 5 - (hazard.x + 4)) < 12) hazard.state = 'shake';
+        continue;
+      }
+
+      if (hazard.state === 'shake') {
+        hazard.shake = (hazard.shake || 0) + dt;
+        if (hazard.shake > 0.35) hazard.state = 'fall';
+        continue;
+      }
+
+      hazard.vy += 640 * dt;
+      hazard.y += hazard.vy * dt;
+      if (hazard.y + hazard.h >= GROUND_Y) hazard.gone = true;
+    }
+  }
+
   prune(cameraX) {
     const limit = cameraX - CHUNK_BEHIND;
     const alive = (item) => item.x + (item.w || TILE) > limit;
     this.solids = this.solids.filter(alive);
-    this.hazards = this.hazards.filter(alive);
+    this.hazards = this.hazards.filter((item) => alive(item) && !item.gone);
     this.coins = this.coins.filter(alive);
     this.hearts = this.hearts.filter((heart) => alive(heart) && !heart.taken);
     this.powerups = this.powerups.filter((power) => alive(power) && !power.taken);
@@ -330,10 +617,11 @@ export class Level {
   }
 
   /** Level-one final boss: bigger, tougher, and it fights in two phases. */
-  addFinalBoss(px, hp) {
+  addFinalBoss(px, hp, variant = 'earth') {
     const boss = {
       type: 'boss',
       isFinal: true,
+      variant,
       // The hitbox reaches the ground so the player's waist-high laser always
       // connects, no matter how high the boss is bobbing.
       x: px, y: GROUND_Y - 44, w: 48, h: 44, scale: 2,

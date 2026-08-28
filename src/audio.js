@@ -148,7 +148,11 @@ export class Sound {
   startMusic(theme = 'earth') {
     this.stopMusic();
     if (!this.ctx) return;
-    const notes = theme === 'moon' ? [98, 123, 147, 123] : [110, 138, 165, 138];
+    const notes = theme === 'moon'
+      ? [98, 123, 147, 123]
+      : theme === 'cave'
+        ? [73, 87, 98, 82] // deeper, heavier pulse underground
+        : [110, 138, 165, 138];
     this.musicStep = 0;
     this.musicTimer = setInterval(() => {
       if (this.muted || !this.ctx) return;
