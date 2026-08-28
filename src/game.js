@@ -647,6 +647,15 @@ export class Game {
     this.particles = this.particles.filter((particle) => particle.life > 0);
   }
 
+  /**
+   * Enter, a tap, or the jump button confirm a menu row - but not the arrow that
+   * moved the cursor in the same frame: ArrowUp doubles as "up" and as jump.
+   */
+  get confirmPressed() {
+    const input = this.input;
+    return input.wasPressed('start') || (input.wasPressed('jump') && !input.wasPressed('menuUp'));
+  }
+
   updateMenu() {
     const input = this.input;
     if (input.wasPressed('menuDown')) {
@@ -671,7 +680,7 @@ export class Game {
       return undefined;
     }
 
-    if (input.wasPressed('start') || input.wasPressed('jump')) return this.chooseMenuItem();
+    if (this.confirmPressed) return this.chooseMenuItem();
     return undefined;
   }
 
@@ -735,7 +744,7 @@ export class Game {
       return;
     }
 
-    if (input.wasPressed('start') || input.wasPressed('jump')) this.buyShopRow(rows[this.shopIndex]);
+    if (this.confirmPressed) this.buyShopRow(rows[this.shopIndex]);
   }
 
   buyShopRow(row) {
